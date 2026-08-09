@@ -20,6 +20,7 @@ public class UserSummaryResponse {
     String alternateEmail;
     String firstName;
     String lastName;
+    String username;
     String displayName;
     String avatarUrl;
     List<String> roles;
