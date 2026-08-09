@@ -1,0 +1,52 @@
+[
+  {
+    "id": "cat_wedding",
+    "slug": "wedding",
+    "name": "Wedding",
+    "description": "Sangeet, reception, and guest-of-honour edits",
+    "image": "https://images.unsplash.com/photo-1519741497674-611481863552?auto=format&fit=crop&w=600&q=70",
+    "productCount": 128,
+    "featured": true,
+    "sortOrder": 1
+  },
+  {
+    "id": "cat_festival",
+    "slug": "festival",
+    "name": "Festival",
+    "description": "Navratri, Diwali, and celebration wear",
+    "image": "https://images.unsplash.com/photo-1533709752211-118fcaf03312?auto=format&fit=crop&w=600&q=70",
+    "productCount": 94,
+    "featured": true,
+    "sortOrder": 2
+  },
+  {
+    "id": "cat_office",
+    "slug": "office",
+    "name": "Office",
+    "description": "Boardroom-ready and corporate event looks",
+    "image": "https://images.unsplash.com/photo-1554568218-0f1715e72254?auto=format&fit=crop&w=600&q=70",
+    "productCount": 67,
+    "featured": true,
+    "sortOrder": 3
+  },
+  {
+    "id": "cat_party",
+    "slug": "party",
+    "name": "Party",
+    "description": "Cocktail, birthday, and night-out statements",
+    "image": "https://images.unsplash.com/photo-1490481651871-ab68de25d43d?auto=format&fit=crop&w=600&q=70",
+    "productCount": 156,
+    "featured": true,
+    "sortOrder": 4
+  },
+  {
+    "id": "cat_new",
+    "slug": "new-in",
+    "name": "New in",
+    "description": "Fresh drops this week",
+    "image": "https://images.unsplash.com/photo-1469334031218-e382a71b716b?auto=format&fit=crop&w=600&q=70",
+    "productCount": 24,
+    "featured": false,
+    "sortOrder": 5
+  }
+]

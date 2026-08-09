@@ -1,0 +1,47 @@
+[
+  {
+    "id": "notif_001",
+    "type": "trial_ready",
+    "title": "Your trial is ready",
+    "body": "Delivery agent has arrived for Emerald draped saree. Start your 15-minute home trial.",
+    "read": false,
+    "actionUrl": "/orders/ord_20481",
+    "createdAt": "2026-08-14T09:41:00+05:30"
+  },
+  {
+    "id": "notif_002",
+    "type": "delivery",
+    "title": "Out for delivery",
+    "body": "Emerald draped saree is on its way. Expected arrival by 10:00 AM.",
+    "read": true,
+    "actionUrl": "/orders/ord_20481",
+    "createdAt": "2026-08-14T09:02:00+05:30"
+  },
+  {
+    "id": "notif_003",
+    "type": "booking_confirmed",
+    "title": "Booking confirmed",
+    "body": "Order #AT-20481 is confirmed. Rental dates: 14–17 Aug 2026.",
+    "read": true,
+    "actionUrl": "/orders/ord_20481",
+    "createdAt": "2026-08-12T10:14:00+05:30"
+  },
+  {
+    "id": "notif_004",
+    "type": "seller_booking",
+    "title": "New booking received",
+    "body": "Emerald draped saree (Size S) booked for 14–17 Aug. Prepare by 13 Aug, 6 PM.",
+    "read": false,
+    "actionUrl": "/seller/bookings/bkg_seller_001",
+    "createdAt": "2026-08-12T10:14:00+05:30"
+  },
+  {
+    "id": "notif_005",
+    "type": "deposit_refunded",
+    "title": "Deposit refunded",
+    "body": "₹2,500 deposit for Sequin cocktail dress has been refunded.",
+    "read": true,
+    "actionUrl": "/orders/ord_20102",
+    "createdAt": "2026-07-14T10:00:00+05:30"
+  }
+]

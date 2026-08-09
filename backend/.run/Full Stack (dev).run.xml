@@ -1,0 +1,8 @@
+<component name="ProjectRunConfigurationManager">
+  <configuration default="false" name="Full Stack (dev)" type="CompoundRunConfigurationType">
+    <toRun name="Docker Compose (infra)" type="docker-deploy" />
+    <toRun name="Closiq Backend (dev - local)" type="SpringBootApplicationConfigurationType" />
+    <toRun name="Frontend (Next.js - API)" type="js.build_tools.npm" />
+    <method v="2" />
+  </configuration>
+</component>

@@ -1,0 +1,21 @@
+{
+  "prod_001": {
+    "variantId": "var_001_s",
+    "unavailableDates": ["2026-08-12", "2026-08-13", "2026-08-18", "2026-08-19"],
+    "bookedRanges": [
+      { "start": "2026-08-14", "end": "2026-08-17", "status": "confirmed" },
+      { "start": "2026-08-20", "end": "2026-08-22", "status": "blocked" }
+    ],
+    "bufferDays": 1,
+    "minRentalDays": 1
+  },
+  "prod_002": {
+    "variantId": "var_002_s",
+    "unavailableDates": ["2026-08-01", "2026-08-05"],
+    "bookedRanges": [
+      { "start": "2026-08-02", "end": "2026-08-04", "status": "confirmed" }
+    ],
+    "bufferDays": 1,
+    "minRentalDays": 1
+  }
+}

@@ -1,0 +1,31 @@
+{
+  "sellerId": "seller_001",
+  "period": "2026-08",
+  "currency": "INR",
+  "metrics": {
+    "views": 2840,
+    "viewsChange": 12.4,
+    "bookings": 8,
+    "bookingsChange": 5.2,
+    "conversionRate": 2.8,
+    "conversionChange": -0.3,
+    "revenue": 42850,
+    "revenueChange": 18.7,
+    "averageRating": 4.9,
+    "ratingChange": 0.1
+  },
+  "topProducts": [
+    { "productId": "prod_001", "title": "Emerald draped saree", "views": 890, "bookings": 4, "revenue": 18600 },
+    { "productId": "prod_002", "title": "Ivory bias-cut gown", "views": 620, "bookings": 2, "revenue": 12400 },
+    { "productId": "prod_003", "title": "Sequin cocktail dress", "views": 480, "bookings": 2, "revenue": 7800 }
+  ],
+  "bookingsByDay": [
+    { "date": "2026-08-01", "count": 1 },
+    { "date": "2026-08-02", "count": 0 },
+    { "date": "2026-08-03", "count": 2 },
+    { "date": "2026-08-04", "count": 0 },
+    { "date": "2026-08-05", "count": 1 },
+    { "date": "2026-08-06", "count": 0 },
+    { "date": "2026-08-07", "count": 1 }
+  ]
+}

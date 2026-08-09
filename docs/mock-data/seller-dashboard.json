@@ -1,0 +1,35 @@
+{
+  "sellerId": "seller_001",
+  "period": "2026-08",
+  "summary": {
+    "totalEarnings": 42850,
+    "pendingPayout": 12400,
+    "availableBalance": 8900,
+    "activeListings": 12,
+    "activeBookings": 4,
+    "completedBookings": 28,
+    "averageRating": 4.9,
+    "currency": "INR"
+  },
+  "recentBookings": [
+    {
+      "id": "bkg_seller_001",
+      "productTitle": "Emerald draped saree",
+      "status": "trial_ready",
+      "earnings": 3312,
+      "rentalStart": "2026-08-14"
+    },
+    {
+      "id": "bkg_seller_002",
+      "productTitle": "Ivory bias-cut gown",
+      "status": "rental_active",
+      "earnings": 3655,
+      "rentalStart": "2026-08-02"
+    }
+  ],
+  "upcomingTasks": [
+    { "type": "prep", "label": "Prepare Emerald draped saree", "dueBy": "2026-08-13T18:00:00+05:30" },
+    { "type": "return", "label": "Expect return — Ivory bias-cut gown", "dueBy": "2026-08-04T10:00:00+05:30" }
+  ],
+  "verificationStatus": "verified"
+}

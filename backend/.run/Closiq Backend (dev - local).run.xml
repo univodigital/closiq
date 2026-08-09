@@ -1,0 +1,19 @@
+<component name="ProjectRunConfigurationManager">
+  <configuration default="false" name="Closiq Backend (dev - local)" type="SpringBootApplicationConfigurationType" factoryName="Spring Boot">
+    <option name="ACTIVE_PROFILES" value="dev" />
+    <module name="closiq-backend" />
+    <option name="SPRING_BOOT_MAIN_CLASS" value="com.closiq.ClosiqApplication" />
+    <envs>
+      <env name="DB_HOST" value="localhost" />
+      <env name="DB_PORT" value="5433" />
+      <env name="DB_NAME" value="closiq" />
+      <env name="DB_USER" value="closiq" />
+      <env name="DB_PASSWORD" value="closiq" />
+      <env name="REDIS_HOST" value="localhost" />
+      <env name="REDIS_PORT" value="6379" />
+    </envs>
+    <method v="2">
+      <option name="Make" enabled="true" />
+    </method>
+  </configuration>
+</component>

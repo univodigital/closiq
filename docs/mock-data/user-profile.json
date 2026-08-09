@@ -1,0 +1,50 @@
+{
+  "id": "user_001",
+  "phone": "+919876543210",
+  "phoneVerified": true,
+  "email": "ananya@example.com",
+  "emailVerified": false,
+  "firstName": "Ananya",
+  "lastName": "Sharma",
+  "displayName": "Ananya S.",
+  "avatarUrl": null,
+  "roles": ["customer", "seller"],
+  "sellerProfile": {
+    "sellerId": "seller_001",
+    "businessName": "House of Meera",
+    "verificationStatus": "verified",
+    "city": "Mumbai",
+    "listingCount": 12,
+    "rating": 4.9
+  },
+  "addresses": [
+    {
+      "id": "addr_001",
+      "label": "Home",
+      "line1": "14 Altamount Road",
+      "line2": "Flat 3B",
+      "city": "Mumbai",
+      "state": "Maharashtra",
+      "pincode": "400026",
+      "isDefault": true,
+      "serviceable": true
+    },
+    {
+      "id": "addr_002",
+      "label": "Office",
+      "line1": "Bandra Kurla Complex",
+      "line2": "Tower 2, 18th floor",
+      "city": "Mumbai",
+      "state": "Maharashtra",
+      "pincode": "400051",
+      "isDefault": false,
+      "serviceable": true
+    }
+  ],
+  "preferences": {
+    "size": "S",
+    "occasions": ["wedding", "party"],
+    "notificationsEnabled": true
+  },
+  "createdAt": "2026-05-01T10:00:00Z"
+}
