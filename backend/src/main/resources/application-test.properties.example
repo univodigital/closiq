@@ -9,16 +9,13 @@ server.port=8081
 closiq.jwt.secret=${JWT_SECRET:change-me-use-at-least-256-bits}
 closiq.otp.console-log-enabled=true
 
-# SMTP (optional — when disabled, OTP/welcome emails log to console)
+# Email (optional — when disabled, OTP/welcome emails log to console)
 closiq.mail.enabled=${MAIL_ENABLED:false}
 closiq.mail.from=${MAIL_FROM:noreply@closiq.com}
 closiq.mail.from-name=${MAIL_FROM_NAME:Closiq}
-spring.mail.host=${SMTP_HOST:}
-spring.mail.port=${SMTP_PORT:587}
-spring.mail.username=${SMTP_USERNAME:}
-spring.mail.password=${SMTP_PASSWORD:}
-spring.mail.properties.mail.smtp.auth=${SMTP_AUTH:true}
-spring.mail.properties.mail.smtp.starttls.enable=${SMTP_STARTTLS:true}
+brevo.api-key=${BREVO_API_KEY:}
+brevo.sender-email=${BREVO_SENDER_EMAIL:}
+brevo.sender-name=${BREVO_SENDER_NAME:Closiq}
 
 logging.level.com.closiq=INFO
 

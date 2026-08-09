@@ -5,7 +5,10 @@
       <env name="REDIS_HOST" value="localhost" />
       <env name="REDIS_PORT" value="6379" />
     </envs>
-    <module name="vastriq-backend" />
+    <option name="envFilePaths">
+      <option value="$USER_HOME$/Downloads/closiq-backend.env" />
+    </option>
+    <module name="closiq-backend" />
     <option name="SPRING_BOOT_MAIN_CLASS" value="com.closiq.ClosiqApplication" />
     <method v="2">
       <option name="Make" enabled="true" />

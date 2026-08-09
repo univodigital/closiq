@@ -122,7 +122,7 @@ public class ClosiqProperties {
     @Getter
     @Setter
     public static class Mail {
-        /** When false, emails are logged to console instead of sent via SMTP. */
+        /** When false, emails are logged to console instead of sent via Brevo HTTP API. */
         private boolean enabled = false;
         private String from = "noreply@closiq.com";
         private String fromName = "Closiq";
