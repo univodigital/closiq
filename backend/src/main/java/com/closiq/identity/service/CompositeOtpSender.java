@@ -5,6 +5,8 @@ import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Component;
 
+import java.util.concurrent.CompletableFuture;
+
 @Slf4j
 @Component
 @RequiredArgsConstructor
@@ -17,11 +19,16 @@ public class CompositeOtpSender implements OtpSender {
         log.info("OTP for {} ({}): {} — SMS delivery not configured; use this code to verify", maskPhone(phone), purpose, otp);
 
         if (email != null && !email.isBlank()) {
-            try {
-                emailService.sendOtp(email, otp, purpose);
-            } catch (Exception ex) {
-                log.warn("Email OTP delivery failed for {} ({}): {}", maskEmail(email), purpose, ex.getMessage());
-            }
+            String deliveryEmail = email;
+            CompletableFuture.runAsync(() -> sendEmailOtp(deliveryEmail, otp, purpose));
+        }
+    }
+
+    private void sendEmailOtp(String email, String otp, String purpose) {
+        try {
+            emailService.sendOtp(email, otp, purpose);
+        } catch (Exception ex) {
+            log.warn("Email OTP delivery failed for {} ({}): {}", maskEmail(email), purpose, ex.getMessage());
         }
     }
 
