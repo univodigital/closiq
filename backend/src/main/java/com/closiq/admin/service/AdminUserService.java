@@ -7,6 +7,7 @@ import com.closiq.admin.web.dto.UpdateAdminUserRequest;
 import com.closiq.common.exception.ErrorCode;
 import com.closiq.common.exception.ClosiqException;
 import com.closiq.common.security.RoleType;
+import com.closiq.common.util.IdGenerator;
 import com.closiq.common.web.PageBoundary;
 import com.closiq.common.web.PageTokenCodec;
 import com.closiq.common.web.PagedResult;
@@ -18,6 +19,10 @@ import com.closiq.identity.repository.UserProfileRepository;
 import com.closiq.identity.repository.UserRepository;
 import com.closiq.identity.repository.UserRoleRepository;
 import com.closiq.identity.service.UserService;
+import com.closiq.seller.domain.Wallet;
+import com.closiq.seller.repository.WalletRepository;
+import com.closiq.user.domain.SellerProfile;
+import com.closiq.user.repository.SellerProfileRepository;
 import lombok.RequiredArgsConstructor;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.data.domain.Sort;
@@ -41,6 +46,8 @@ public class AdminUserService {
     private final UserProfileRepository userProfileRepository;
     private final UserRoleRepository userRoleRepository;
     private final RoleRepository roleRepository;
+    private final SellerProfileRepository sellerProfileRepository;
+    private final WalletRepository walletRepository;
     private final UserService userService;
 
     @Transactional(readOnly = true)
@@ -174,19 +181,20 @@ public class AdminUserService {
         if (roles == null || roles.isEmpty()) {
             return;
         }
-        for (String roleCode : roles) {
-            if (RoleType.CUSTOMER.name().equals(roleCode)) {
+        EnumSet<RoleType> desired = parseDesiredRoles(roles);
+        for (RoleType role : desired) {
+            if (role == RoleType.CUSTOMER) {
                 continue;
             }
-            userService.assignRole(user, RoleType.valueOf(roleCode));
+            userService.assignRole(user, role);
+            if (role == RoleType.SELLER) {
+                ensureSellerProfile(user);
+            }
         }
     }
 
     private void syncRoles(User user, List<String> desiredRoles) {
-        EnumSet<RoleType> desired = EnumSet.noneOf(RoleType.class);
-        for (String roleCode : desiredRoles) {
-            desired.add(RoleType.valueOf(roleCode));
-        }
+        EnumSet<RoleType> desired = parseDesiredRoles(desiredRoles);
         desired.add(RoleType.CUSTOMER);
 
         List<RoleType> current = userService.getUserRoles(user.getId());
@@ -199,6 +207,56 @@ public class AdminUserService {
         for (RoleType role : desired) {
             userService.assignRole(user, role);
         }
+        if (desired.contains(RoleType.SELLER)) {
+            ensureSellerProfile(user);
+        }
+    }
+
+    private EnumSet<RoleType> parseDesiredRoles(List<String> roleCodes) {
+        EnumSet<RoleType> desired = EnumSet.noneOf(RoleType.class);
+        for (String roleCode : roleCodes) {
+            try {
+                desired.add(RoleType.valueOf(roleCode));
+            } catch (IllegalArgumentException ex) {
+                throw new ClosiqException(ErrorCode.VALIDATION_ERROR, "Invalid role: " + roleCode);
+            }
+        }
+        return desired;
+    }
+
+    private void ensureSellerProfile(User user) {
+        if (sellerProfileRepository.findByUserId(user.getId()).isPresent()) {
+            return;
+        }
+
+        UserProfile profile = userService.requireProfile(user.getId());
+        Instant now = Instant.now();
+        String businessName = profile.getDisplayName();
+        if (businessName == null || businessName.isBlank()) {
+            businessName = "Seller";
+        } else if (businessName.length() > 100) {
+            businessName = businessName.substring(0, 100);
+        }
+
+        SellerProfile sellerProfile = SellerProfile.builder()
+                .id(IdGenerator.uuidV7())
+                .user(user)
+                .businessName(businessName)
+                .status("ACTIVE")
+                .createdAt(now)
+                .updatedAt(now)
+                .build();
+        sellerProfileRepository.save(sellerProfile);
+
+        walletRepository.save(Wallet.builder()
+                .id(IdGenerator.uuidV7())
+                .sellerProfile(sellerProfile)
+                .availableBalance(0)
+                .pendingBalance(0)
+                .totalEarned(0)
+                .totalWithdrawn(0)
+                .currencyCode("INR")
+                .build());
     }
 
     private User requireUser(UUID userId) {
