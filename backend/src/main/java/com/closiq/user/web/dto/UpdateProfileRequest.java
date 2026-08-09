@@ -1,5 +1,6 @@
 package com.closiq.user.web.dto;
 
+import com.closiq.identity.domain.Gender;
 import jakarta.validation.constraints.Email;
 import jakarta.validation.constraints.Pattern;
 import jakarta.validation.constraints.Size;
@@ -15,6 +16,8 @@ public class UpdateProfileRequest {
 
     @Size(min = 1, max = 50, message = "Last name must be between 1 and 50 characters")
     String lastName;
+
+    Gender gender;
 
     @Email(message = "Email must be valid")
     String email;

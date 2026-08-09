@@ -53,6 +53,9 @@ public class UserProfileService {
         if (request.getFirstName() != null || request.getLastName() != null) {
             profile.setDisplayName(UserService.buildDisplayName(profile.getFirstName(), profile.getLastName()));
         }
+        if (request.getGender() != null) {
+            profile.setGender(request.getGender());
+        }
 
         if (request.getEmail() != null) {
             userRepository.findByEmailIgnoreCaseAndDeletedAtIsNull(request.getEmail())

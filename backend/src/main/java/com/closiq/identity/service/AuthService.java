@@ -54,8 +54,9 @@ public class AuthService {
     private final EmailService emailService;
 
     @Transactional
-    public OtpInitiateResponse register(String phone) {
-        OtpSession session = otpService.createSession(phone, OtpPurpose.REGISTER);
+    public OtpInitiateResponse register(String phone, String email) {
+        String deliveryEmail = email != null && !email.isBlank() ? email.trim().toLowerCase() : null;
+        OtpSession session = otpService.createSession(phone, OtpPurpose.REGISTER, deliveryEmail);
         return buildOtpInitiateResponse(session, false);
     }
 
@@ -244,10 +245,17 @@ public class AuthService {
                 session.getPhone(),
                 profile.getUsername(),
                 hashUtils.hashPassword(profile.getPassword()),
-                profile.getEmail() != null ? profile.getEmail().trim().toLowerCase() : null);
+                profile.getEmail() != null ? profile.getEmail().trim().toLowerCase() : null,
+                profile.getFirstName().trim(),
+                profile.getLastName().trim(),
+                profile.getGender());
 
         if (user.getEmail() != null && !user.getEmail().isBlank()) {
-            emailService.sendWelcome(user.getEmail(), profile.getUsername());
+            try {
+                emailService.sendWelcome(user.getEmail(), profile.getUsername());
+            } catch (Exception ex) {
+                log.warn("Welcome email failed for {}: {}", user.getEmail(), ex.getMessage());
+            }
         }
 
         return user;

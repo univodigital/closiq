@@ -1,7 +1,7 @@
 import userProfile from "@/mocks/data/user-profile.json";
 import { delay } from "@/mocks/utils/delay";
 import type { AuthService, RegistrationProfile } from "./auth.service";
-import type { User } from "@/shared/types";
+import type { User, Gender } from "@/shared/types";
 
 const MOCK_OTP = "123456";
 const MOCK_PASSWORD = "Password1";
@@ -11,6 +11,7 @@ let currentUser: User | null = null;
 function mapUser(raw: typeof userProfile): User {
   return {
     ...raw,
+    gender: raw.gender as Gender,
     roles: raw.roles.map((r) => r.toUpperCase() as User["roles"][number]),
     sellerProfile: raw.sellerProfile
       ? {
@@ -22,7 +23,7 @@ function mapUser(raw: typeof userProfile): User {
 }
 
 export class MockAuthService implements AuthService {
-  async register(phone: string, _acceptTerms = true) {
+  async register(phone: string, _acceptTerms = true, _email?: string) {
     await delay(600);
     return { otpSessionId: `otp_${phone}`, expiresInSeconds: 300 };
   }
@@ -51,9 +52,10 @@ export class MockAuthService implements AuthService {
     currentUser = profile
       ? {
           ...base,
-          firstName: profile.username,
-          lastName: "",
-          displayName: profile.username,
+          firstName: profile.firstName,
+          lastName: profile.lastName,
+          gender: profile.gender,
+          displayName: `${profile.firstName} ${profile.lastName.charAt(0)}.`,
           roles: ["CUSTOMER"],
           sellerProfile: undefined,
         }

@@ -8,6 +8,7 @@
   "alternateEmail": "ananya.alt@example.com",
   "firstName": "Ananya",
   "lastName": "Sharma",
+  "gender": "FEMALE",
   "displayName": "Ananya S.",
   "avatarUrl": null,
   "roles": ["customer", "seller"],

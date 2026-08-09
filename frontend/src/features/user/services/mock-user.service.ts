@@ -1,6 +1,6 @@
 import userProfile from "@/mocks/data/user-profile.json";
 import { delay } from "@/mocks/utils/delay";
-import type { Address, User } from "@/shared/types";
+import type { Address, Gender, User } from "@/shared/types";
 import type {
   CreateAddressInput,
   UpdateAddressInput,
@@ -17,6 +17,7 @@ let addresses = [...userProfile.addresses] as Address[];
 function mapUser(raw: MockUserProfile): User {
   return {
     ...raw,
+    gender: raw.gender as Gender,
     alternatePhone: raw.alternatePhone,
     alternateEmail: raw.alternateEmail,
     roles: raw.roles.map((r) => r.toUpperCase() as User["roles"][number]),
@@ -84,6 +85,7 @@ export async function updateProfile(input: UpdateProfileInput): Promise<User> {
   Object.assign(userProfile, {
     firstName: input.firstName ?? userProfile.firstName,
     lastName: input.lastName ?? userProfile.lastName,
+    gender: input.gender ?? userProfile.gender,
     displayName:
       input.firstName && input.lastName
         ? `${input.firstName} ${input.lastName.charAt(0)}.`

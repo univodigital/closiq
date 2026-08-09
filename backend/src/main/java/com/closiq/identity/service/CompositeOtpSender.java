@@ -1,6 +1,5 @@
 package com.closiq.identity.service;
 
-import com.closiq.config.ClosiqProperties;
 import com.closiq.notification.email.EmailService;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
@@ -11,22 +10,18 @@ import org.springframework.stereotype.Component;
 @RequiredArgsConstructor
 public class CompositeOtpSender implements OtpSender {
 
-    private final ClosiqProperties properties;
     private final EmailService emailService;
 
     @Override
     public void sendOtp(String phone, String email, String otp, String purpose) {
-        sendSms(phone, otp, purpose);
-        if (email != null && !email.isBlank()) {
-            emailService.sendOtp(email, otp, purpose);
-        }
-    }
+        log.info("OTP for {} ({}): {} — SMS delivery not configured; use this code to verify", maskPhone(phone), purpose, otp);
 
-    private void sendSms(String phone, String otp, String purpose) {
-        if (properties.getOtp().isConsoleLogEnabled()) {
-            log.info("SMS OTP for {} ({}): {}", maskPhone(phone), purpose, otp);
-        } else {
-            log.debug("SMS OTP dispatched to {} for purpose {}", maskPhone(phone), purpose);
+        if (email != null && !email.isBlank()) {
+            try {
+                emailService.sendOtp(email, otp, purpose);
+            } catch (Exception ex) {
+                log.warn("Email OTP delivery failed for {} ({}): {}", maskEmail(email), purpose, ex.getMessage());
+            }
         }
     }
 
@@ -35,5 +30,16 @@ public class CompositeOtpSender implements OtpSender {
             return "****";
         }
         return phone.substring(0, phone.length() - 4) + "****";
+    }
+
+    private String maskEmail(String email) {
+        if (email == null || !email.contains("@")) {
+            return "****";
+        }
+        int at = email.indexOf('@');
+        if (at <= 1) {
+            return "****" + email.substring(at);
+        }
+        return email.charAt(0) + "****" + email.substring(at);
     }
 }

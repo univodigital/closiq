@@ -58,7 +58,7 @@ public class AuthController {
                     "You must accept the terms and conditions");
         }
 
-        OtpInitiateResponse response = authService.register(request.getPhone());
+        OtpInitiateResponse response = authService.register(request.getPhone(), request.getEmail());
         return ResponseEntity.ok(ApiResponse.ok(response, ClosiqRequestIdFilter.getRequestId(httpRequest)));
     }
 

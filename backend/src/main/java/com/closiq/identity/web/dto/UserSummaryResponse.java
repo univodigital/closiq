@@ -1,5 +1,6 @@
 package com.closiq.identity.web.dto;
 
+import com.closiq.identity.domain.Gender;
 import lombok.Builder;
 import lombok.Value;
 
@@ -20,6 +21,7 @@ public class UserSummaryResponse {
     String alternateEmail;
     String firstName;
     String lastName;
+    Gender gender;
     String username;
     String displayName;
     String avatarUrl;

@@ -45,6 +45,10 @@ public class UserProfile {
     @Column(name = "last_name", nullable = false, length = 50)
     private String lastName;
 
+    @Column(nullable = false, length = 20)
+    @jakarta.persistence.Enumerated(jakarta.persistence.EnumType.STRING)
+    private Gender gender;
+
     @Column(length = 30)
     private String username;
 

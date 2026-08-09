@@ -8,6 +8,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { ROUTES } from "@/shared/constants/routes";
+import type { Gender } from "@/shared/types";
 
 export default function VerifyOtpPage() {
   const router = useRouter();
@@ -36,15 +37,21 @@ export default function VerifyOtpPage() {
         const username = sessionStorage.getItem("registerUsername");
         const password = sessionStorage.getItem("registerPassword");
         const email = sessionStorage.getItem("registerEmail");
-        if (!username || !password || !email) {
+        const firstName = sessionStorage.getItem("registerFirstName");
+        const lastName = sessionStorage.getItem("registerLastName");
+        const gender = sessionStorage.getItem("registerGender") as Gender | null;
+        if (!username || !password || !email || !firstName || !lastName || !gender) {
           toast.error("Registration details missing. Please start again.");
           router.push(ROUTES.signup);
           return;
         }
-        await verifyOtp(otpSessionId, otp, { username, password, email });
+        await verifyOtp(otpSessionId, otp, { username, password, email, firstName, lastName, gender });
         sessionStorage.removeItem("registerUsername");
         sessionStorage.removeItem("registerPassword");
         sessionStorage.removeItem("registerEmail");
+        sessionStorage.removeItem("registerFirstName");
+        sessionStorage.removeItem("registerLastName");
+        sessionStorage.removeItem("registerGender");
       } else {
         await verifyOtp(otpSessionId, otp);
       }
