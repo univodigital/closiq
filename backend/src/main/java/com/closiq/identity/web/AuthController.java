@@ -68,7 +68,7 @@ public class AuthController {
             @Valid @RequestBody LoginRequest request,
             HttpServletRequest httpRequest) {
 
-        OtpInitiateResponse response = authService.login(request.getPhone());
+        OtpInitiateResponse response = authService.login(request.getIdentifier());
         return ResponseEntity.ok(ApiResponse.ok(response, ClosiqRequestIdFilter.getRequestId(httpRequest)));
     }
 
@@ -153,7 +153,7 @@ public class AuthController {
             @Valid @RequestBody ForgotPasswordRequest request,
             HttpServletRequest httpRequest) {
 
-        OtpInitiateResponse response = authService.forgotPassword(request.getPhone());
+        OtpInitiateResponse response = authService.forgotPassword(request.getIdentifier());
         return ResponseEntity.ok(ApiResponse.ok(response, ClosiqRequestIdFilter.getRequestId(httpRequest)));
     }
 

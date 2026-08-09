@@ -26,6 +26,11 @@ public class OtpService {
 
     @Transactional
     public OtpSession createSession(String phone, OtpPurpose purpose) {
+        return createSession(phone, purpose, null);
+    }
+
+    @Transactional
+    public OtpSession createSession(String phone, OtpPurpose purpose, String email) {
         rateLimiter.checkSendAllowed(phone);
 
         String otp = hashUtils.generateNumericOtp(properties.getOtp().getLength());
@@ -43,7 +48,7 @@ public class OtpService {
                 .build();
 
         otpSessionRepository.save(session);
-        otpSender.sendOtp(phone, otp, purpose.name());
+        otpSender.sendOtp(phone, email, otp, purpose.name());
         return session;
     }
 

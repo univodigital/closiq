@@ -46,7 +46,7 @@ export default function ResetPasswordPage() {
       router.replace(ROUTES.forgotPassword);
       return;
     }
-    setPhone(sessionStorage.getItem("otpPhone") ?? "your phone");
+    setPhone(sessionStorage.getItem("otpDeliveryHint") ?? "your phone and email");
   }, [router]);
 
   const onSubmit = async (data: FormData) => {
@@ -60,7 +60,8 @@ export default function ResetPasswordPage() {
     try {
       await resetPassword(otpSessionId, data.otp, data.newPassword);
       sessionStorage.removeItem("otpSessionId");
-      sessionStorage.removeItem("otpPhone");
+      sessionStorage.removeItem("otpDeliveryHint");
+      sessionStorage.removeItem("otpChannel");
       toast.success("Password updated successfully");
       router.push(ROUTES.home);
     } catch (e) {
@@ -74,7 +75,7 @@ export default function ResetPasswordPage() {
     <Card>
       <CardHeader>
         <CardTitle>Reset password</CardTitle>
-        <p className="text-sm text-muted-foreground">Enter the OTP sent to {phone}</p>
+        <p className="text-sm text-muted-foreground">Enter the code sent to {phone}</p>
       </CardHeader>
       <CardContent>
         <form onSubmit={handleSubmit(onSubmit)} className="space-y-4">
@@ -108,7 +109,7 @@ export default function ResetPasswordPage() {
               error={errors.confirmPassword?.message}
             />
           </div>
-          <Button type="submit" variant="primary" size="lg" disabled={loading}>
+          <Button type="submit" variant="primary" size="lg" className="w-full" disabled={loading}>
             {loading ? "Updating…" : "Update password"}
           </Button>
         </form>

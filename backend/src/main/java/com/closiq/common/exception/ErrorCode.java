@@ -12,7 +12,7 @@ public enum ErrorCode {
     TOKEN_EXPIRED(HttpStatus.UNAUTHORIZED, "Access token has expired."),
     FORBIDDEN(HttpStatus.FORBIDDEN, "You do not have permission to perform this action."),
     NOT_FOUND(HttpStatus.NOT_FOUND, "Resource not found."),
-    PHONE_NOT_REGISTERED(HttpStatus.NOT_FOUND, "Phone number is not registered."),
+    PHONE_NOT_REGISTERED(HttpStatus.NOT_FOUND, "No account found with this phone or email."),
     ALREADY_EXISTS(HttpStatus.CONFLICT, "Resource already exists."),
     SELLER_NOT_VERIFIED(HttpStatus.FORBIDDEN, "Seller account is not verified."),
     INSUFFICIENT_BALANCE(HttpStatus.UNPROCESSABLE_ENTITY, "Insufficient wallet balance."),

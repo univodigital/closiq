@@ -24,6 +24,7 @@ public class ClosiqProperties {
     private Booking booking = new Booking();
     private Razorpay razorpay = new Razorpay();
     private Shadowfax shadowfax = new Shadowfax();
+    private Mail mail = new Mail();
 
     @Getter
     @Setter
@@ -116,5 +117,14 @@ public class ClosiqProperties {
     @Setter
     public static class Cors {
         private List<String> allowedOrigins = List.of("http://localhost:3000");
+    }
+
+    @Getter
+    @Setter
+    public static class Mail {
+        /** When false, emails are logged to console instead of sent via SMTP. */
+        private boolean enabled = false;
+        private String from = "noreply@closiq.com";
+        private String fromName = "Closiq";
     }
 }

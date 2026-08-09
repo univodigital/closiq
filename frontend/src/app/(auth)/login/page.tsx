@@ -12,19 +12,20 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { ApiError } from "@/lib/api-client";
+import { normalizeAuthIdentifier } from "@/lib/auth-identifier";
 import { ROUTES } from "@/shared/constants/routes";
 import { cn } from "@/lib/utils";
 
-const otpSchema = z.object({
-  phone: z.string().regex(/^(\+91)?[6-9]\d{9}$/, "Enter valid 10-digit mobile"),
+const identifierSchema = z.object({
+  identifier: z.string().min(1, "Enter phone or email"),
 });
 
 const passwordSchema = z.object({
-  identifier: z.string().min(1, "Enter phone or username"),
+  identifier: z.string().min(1, "Enter phone or email"),
   password: z.string().min(1, "Password is required"),
 });
 
-type OtpFormData = z.infer<typeof otpSchema>;
+type OtpFormData = z.infer<typeof identifierSchema>;
 type PasswordFormData = z.infer<typeof passwordSchema>;
 
 type LoginMode = "otp" | "password";
@@ -38,8 +39,8 @@ export default function LoginPage() {
   const [loading, setLoading] = useState(false);
 
   const otpForm = useForm<OtpFormData>({
-    resolver: zodResolver(otpSchema),
-    defaultValues: { phone: "" },
+    resolver: zodResolver(identifierSchema),
+    defaultValues: { identifier: "" },
   });
 
   const passwordForm = useForm<PasswordFormData>({
@@ -50,15 +51,18 @@ export default function LoginPage() {
   const onOtpSubmit = async (data: OtpFormData) => {
     setLoading(true);
     try {
-      const phone = data.phone.startsWith("+91") ? data.phone : `+91${data.phone}`;
-      const { otpSessionId } = await login(phone);
+      const { type, value } = normalizeAuthIdentifier(data.identifier);
+      const { otpSessionId } = await login(value);
       sessionStorage.setItem("otpSessionId", otpSessionId);
-      sessionStorage.setItem("otpPhone", phone);
+      sessionStorage.setItem("otpDeliveryHint", type === "email" ? value : value);
+      sessionStorage.setItem("otpChannel", type);
       router.push(`/signup/verify?returnUrl=${encodeURIComponent(returnUrl)}&mode=login`);
     } catch (error) {
       if (error instanceof ApiError && error.status === 404) {
-        toast.error("This number is not registered. Create an account first.");
+        toast.error("No account found with this phone or email.");
       } else if (error instanceof ApiError) {
+        toast.error(error.message);
+      } else if (error instanceof Error) {
         toast.error(error.message);
       } else {
         toast.error("Could not send OTP");
@@ -71,14 +75,17 @@ export default function LoginPage() {
   const onPasswordSubmit = async (data: PasswordFormData) => {
     setLoading(true);
     try {
-      await loginWithPassword(data.identifier, data.password);
+      const { value } = normalizeAuthIdentifier(data.identifier);
+      await loginWithPassword(value, data.password);
       toast.success("Welcome back");
       router.push(returnUrl);
     } catch (error) {
       if (error instanceof ApiError) {
         toast.error(error.message);
+      } else if (error instanceof Error) {
+        toast.error(error.message);
       } else {
-        toast.error("Invalid phone/username or password");
+        toast.error("Invalid phone/email or password");
       }
     } finally {
       setLoading(false);
@@ -118,29 +125,41 @@ export default function LoginPage() {
         {mode === "otp" ? (
           <form onSubmit={otpForm.handleSubmit(onOtpSubmit)} className="space-y-4">
             <div>
-              <label className="label-caps mb-2 block text-muted-foreground">Mobile</label>
-              <div className="flex gap-2">
-                <span className="flex h-11 items-center rounded-sm border border-border px-3 text-sm text-muted-foreground">+91</span>
-                <Input {...otpForm.register("phone")} placeholder="9876543210" error={otpForm.formState.errors.phone?.message} />
-              </div>
+              <label className="label-caps mb-2 block text-muted-foreground">Phone or email</label>
+              <Input
+                {...otpForm.register("identifier")}
+                placeholder="9876543210 or you@example.com"
+                autoComplete="username"
+                error={otpForm.formState.errors.identifier?.message}
+              />
             </div>
-            <Button type="submit" variant="primary" size="lg" disabled={loading}>
+            <Button type="submit" variant="primary" size="lg" className="w-full" disabled={loading}>
               {loading ? "Sending OTP…" : "Send OTP"}
             </Button>
+            <p className="text-right">
+              <Link href={ROUTES.forgotPassword} className="text-sm text-accent hover:underline">
+                Forgot password?
+              </Link>
+            </p>
           </form>
         ) : (
           <form onSubmit={passwordForm.handleSubmit(onPasswordSubmit)} className="space-y-4">
             <div>
-              <label className="label-caps mb-2 block text-muted-foreground">Phone or username</label>
+              <label className="label-caps mb-2 block text-muted-foreground">Phone or email</label>
               <Input
                 {...passwordForm.register("identifier")}
-                placeholder="9876543210 or your_username"
+                placeholder="9876543210 or you@example.com"
                 autoComplete="username"
                 error={passwordForm.formState.errors.identifier?.message}
               />
             </div>
             <div>
-              <label className="label-caps mb-2 block text-muted-foreground">Password</label>
+              <div className="mb-2 flex items-center justify-between">
+                <label className="label-caps text-muted-foreground">Password</label>
+                <Link href={ROUTES.forgotPassword} className="text-xs text-accent hover:underline">
+                  Forgot password?
+                </Link>
+              </div>
               <Input
                 {...passwordForm.register("password")}
                 type="password"
@@ -149,14 +168,9 @@ export default function LoginPage() {
                 error={passwordForm.formState.errors.password?.message}
               />
             </div>
-            <div className="flex items-center justify-between">
-              <Button type="submit" variant="primary" size="lg" disabled={loading}>
-                {loading ? "Signing in…" : "Sign in"}
-              </Button>
-              <Link href={ROUTES.forgotPassword} className="text-sm text-accent hover:underline">
-                Forgot password?
-              </Link>
-            </div>
+            <Button type="submit" variant="primary" size="lg" className="w-full" disabled={loading}>
+              {loading ? "Signing in…" : "Sign in"}
+            </Button>
           </form>
         )}
 
@@ -167,8 +181,8 @@ export default function LoginPage() {
           </Link>
         </p>
         {mode === "otp" && (
-          <p className="text-center text-xs text-muted-foreground">
-            Check the backend console for your OTP
+          <p className="mt-2 text-center text-xs text-muted-foreground">
+            OTP is sent to your mobile and email when available
           </p>
         )}
       </CardContent>

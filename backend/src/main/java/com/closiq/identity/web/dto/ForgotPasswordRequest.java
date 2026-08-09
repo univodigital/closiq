@@ -1,13 +1,14 @@
 package com.closiq.identity.web.dto;
 
 import jakarta.validation.constraints.NotBlank;
-import jakarta.validation.constraints.Pattern;
+import jakarta.validation.constraints.Size;
 import lombok.Value;
 
 @Value
 public class ForgotPasswordRequest {
 
-    @NotBlank(message = "Phone is required")
-    @Pattern(regexp = "^\\+91[6-9]\\d{9}$", message = "Phone must be a valid Indian mobile number in E.164 format (+91XXXXXXXXXX)")
-    String phone;
+    /** Indian mobile number or email address. */
+    @NotBlank(message = "Phone or email is required")
+    @Size(max = 255, message = "Identifier is too long")
+    String identifier;
 }

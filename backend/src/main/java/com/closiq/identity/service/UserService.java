@@ -119,6 +119,15 @@ public class UserService {
     }
 
     @Transactional(readOnly = true)
+    public User findByEmail(String email) {
+        return userRepository.findByEmailIgnoreCaseAndDeletedAtIsNull(email)
+                .filter(user -> user.getDeletedAt() == null && user.getStatus() == UserStatus.ACTIVE)
+                .orElseThrow(() -> new com.closiq.common.exception.ClosiqException(
+                        com.closiq.common.exception.ErrorCode.UNAUTHORIZED,
+                        "Invalid phone/email or password"));
+    }
+
+    @Transactional(readOnly = true)
     public User findByUsername(String username) {
         return userProfileRepository.findByUsernameIgnoreCase(username)
                 .map(UserProfile::getUser)
