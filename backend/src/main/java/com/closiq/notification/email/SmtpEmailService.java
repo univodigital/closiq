@@ -62,10 +62,22 @@ public class SmtpEmailService implements EmailService {
             helper.setSubject(subject);
             helper.setText(htmlBody, true);
             mailSender.send(message);
-            log.debug("Email sent to {}", toEmail);
+            log.info("Email sent to {}", maskEmail(toEmail));
         } catch (MessagingException | java.io.UnsupportedEncodingException ex) {
-            log.error("Failed to send email to {}", toEmail, ex);
-            throw new IllegalStateException("Failed to send email", ex);
+            log.warn("Failed to send email to {}: {}", maskEmail(toEmail), ex.getMessage());
+        } catch (Exception ex) {
+            log.warn("Unexpected email failure for {}: {}", maskEmail(toEmail), ex.getMessage());
         }
+    }
+
+    private String maskEmail(String email) {
+        if (email == null || !email.contains("@")) {
+            return "****";
+        }
+        int at = email.indexOf('@');
+        if (at <= 1) {
+            return "****" + email.substring(at);
+        }
+        return email.charAt(0) + "****" + email.substring(at);
     }
 }

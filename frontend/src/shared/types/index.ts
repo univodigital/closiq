@@ -22,6 +22,8 @@ export interface ApiResponse<T> {
 
 export type UserRole = "CUSTOMER" | "SELLER" | "ADMIN";
 
+export type Gender = "MALE" | "FEMALE" | "OTHER" | "PREFER_NOT_TO_SAY";
+
 export interface Address {
   id: string;
   label: string;
@@ -45,6 +47,7 @@ export interface User {
   alternateEmail?: string;
   firstName: string;
   lastName: string;
+  gender: Gender;
   displayName: string;
   avatarUrl: string | null;
   roles: UserRole[];

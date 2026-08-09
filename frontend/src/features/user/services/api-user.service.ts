@@ -1,6 +1,6 @@
 import { apiFetch, apiFetchEnvelope } from "@/lib/api-client";
 import { mapSellerProfile, type RawSellerProfile } from "@/lib/api-mappers";
-import type { Address, User } from "@/shared/types";
+import type { Address, Gender, User } from "@/shared/types";
 
 export interface CreateAddressInput {
   label: string;
@@ -18,6 +18,7 @@ export type UpdateAddressInput = Partial<CreateAddressInput>;
 export interface UpdateProfileInput {
   firstName?: string;
   lastName?: string;
+  gender?: Gender;
   email?: string;
   alternatePhone?: string;
   alternateEmail?: string;
@@ -73,6 +74,7 @@ interface UserProfileResponse {
   alternateEmail?: string;
   firstName: string;
   lastName: string;
+  gender: Gender;
   displayName: string;
   avatarUrl?: string | null;
   roles: string[];
@@ -91,6 +93,7 @@ function mapProfileResponse(raw: UserProfileResponse): User {
     alternateEmail: raw.alternateEmail,
     firstName: raw.firstName,
     lastName: raw.lastName,
+    gender: raw.gender,
     displayName: raw.displayName,
     avatarUrl: raw.avatarUrl ?? null,
     roles: raw.roles as User["roles"],

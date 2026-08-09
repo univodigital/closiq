@@ -21,6 +21,12 @@ const passwordSchema = z
   .regex(/\d/, "Include a number");
 
 const schema = z.object({
+  firstName: z.string().min(1, "First name is required").max(50, "Max 50 characters"),
+  lastName: z.string().min(1, "Last name is required").max(50, "Max 50 characters"),
+  gender: z.enum(["MALE", "FEMALE", "OTHER", "PREFER_NOT_TO_SAY"], {
+    required_error: "Select your gender",
+    invalid_type_error: "Select your gender",
+  }),
   username: z
     .string()
     .min(3, "At least 3 characters")
@@ -46,12 +52,15 @@ export default function SignupPage() {
     setLoading(true);
     try {
       const phone = data.phone.startsWith("+91") ? data.phone : `+91${data.phone}`;
-      const { otpSessionId } = await authService.register(phone, true);
+      const { otpSessionId } = await authService.register(phone, true, data.email.trim().toLowerCase());
       sessionStorage.setItem("otpSessionId", otpSessionId);
       sessionStorage.setItem("otpPhone", phone);
       sessionStorage.setItem("registerUsername", data.username);
       sessionStorage.setItem("registerPassword", data.password);
       sessionStorage.setItem("registerEmail", data.email.trim().toLowerCase());
+      sessionStorage.setItem("registerFirstName", data.firstName.trim());
+      sessionStorage.setItem("registerLastName", data.lastName.trim());
+      sessionStorage.setItem("registerGender", data.gender);
       router.push("/signup/verify?mode=register");
     } catch (error) {
       if (error instanceof ApiError && error.status === 409) {
@@ -68,10 +77,34 @@ export default function SignupPage() {
     <Card>
       <CardHeader>
         <CardTitle>Create account</CardTitle>
-        <p className="text-sm text-muted-foreground">Set up your username, email, mobile, and password</p>
+        <p className="text-sm text-muted-foreground">Set up your profile, username, email, mobile, and password</p>
       </CardHeader>
       <CardContent>
         <form onSubmit={handleSubmit(onSubmit)} className="space-y-4">
+          <div className="grid gap-4 sm:grid-cols-2">
+            <div>
+              <label className="label-caps mb-2 block text-muted-foreground">First name</label>
+              <Input {...register("firstName")} placeholder="Ananya" autoComplete="given-name" error={errors.firstName?.message} />
+            </div>
+            <div>
+              <label className="label-caps mb-2 block text-muted-foreground">Last name</label>
+              <Input {...register("lastName")} placeholder="Sharma" autoComplete="family-name" error={errors.lastName?.message} />
+            </div>
+          </div>
+          <div>
+            <label className="label-caps mb-2 block text-muted-foreground">Gender</label>
+            <select
+              {...register("gender")}
+              className="flex h-11 w-full rounded-sm border border-input bg-background px-3 py-2 text-sm"
+            >
+              <option value="">Select gender</option>
+              <option value="MALE">Male</option>
+              <option value="FEMALE">Female</option>
+              <option value="OTHER">Other</option>
+              <option value="PREFER_NOT_TO_SAY">Prefer not to say</option>
+            </select>
+            {errors.gender && <p className="mt-1 text-xs text-destructive">{errors.gender.message}</p>}
+          </div>
           <div>
             <label className="label-caps mb-2 block text-muted-foreground">Username</label>
             <Input {...register("username")} placeholder="your_username" autoComplete="username" error={errors.username?.message} />

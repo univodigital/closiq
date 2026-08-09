@@ -2,6 +2,7 @@ import { apiFetch } from "@/lib/api-client";
 import { mapSellerProfile, type RawSellerProfile } from "@/lib/api-mappers";
 import { setAccessToken } from "@/lib/auth-token";
 import type { User } from "@/shared/types";
+import type { Gender } from "@/shared/types";
 import type { AuthService, RegistrationProfile } from "./auth.service";
 
 interface OtpInitiateResponse {
@@ -20,6 +21,7 @@ interface UserSummaryResponse {
   username?: string;
   firstName: string;
   lastName: string;
+  gender: Gender;
   displayName: string;
   avatarUrl?: string | null;
   roles: string[];
@@ -45,6 +47,7 @@ function mapUser(raw: UserSummaryResponse): User {
     alternateEmail: raw.alternateEmail,
     firstName: raw.firstName,
     lastName: raw.lastName,
+    gender: raw.gender,
     displayName: raw.displayName,
     avatarUrl: raw.avatarUrl ?? null,
     roles: raw.roles as User["roles"],
@@ -58,10 +61,14 @@ function storeAuthToken(data: AuthTokenResponse) {
 }
 
 export class ApiAuthService implements AuthService {
-  async register(phone: string, acceptTerms = true) {
+  async register(phone: string, acceptTerms = true, email?: string) {
     const data = await apiFetch<OtpInitiateResponse>("/auth/register", {
       method: "POST",
-      body: JSON.stringify({ phone, acceptTerms }),
+      body: JSON.stringify({
+        phone,
+        acceptTerms,
+        email: email?.trim().toLowerCase(),
+      }),
     });
     return { otpSessionId: data.otpSessionId, expiresInSeconds: data.expiresInSeconds };
   }
@@ -94,6 +101,9 @@ export class ApiAuthService implements AuthService {
               username: profile.username,
               password: profile.password,
               email: profile.email,
+              firstName: profile.firstName,
+              lastName: profile.lastName,
+              gender: profile.gender,
             }
           : undefined,
       }),

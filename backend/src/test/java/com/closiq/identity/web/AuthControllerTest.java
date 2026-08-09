@@ -43,7 +43,7 @@ class AuthControllerTest {
 
     @Test
     void register_returnsOtpSession() throws Exception {
-        when(authService.register(any())).thenReturn(OtpInitiateResponse.builder()
+        when(authService.register(any(), any())).thenReturn(OtpInitiateResponse.builder()
                 .otpSessionId("550e8400-e29b-41d4-a716-446655440000")
                 .phone("+919876543210")
                 .expiresInSeconds(300)
@@ -54,7 +54,7 @@ class AuthControllerTest {
         mockMvc.perform(post("/api/v1/auth/register")
                         .contentType(MediaType.APPLICATION_JSON)
                         .content(objectMapper.writeValueAsString(
-                                new RegisterRequest("+919876543210", true))))
+                                new RegisterRequest("+919876543210", null, true))))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.success").value(true))
                 .andExpect(jsonPath("$.data.otpSessionId").exists())
@@ -66,7 +66,7 @@ class AuthControllerTest {
         mockMvc.perform(post("/api/v1/auth/register")
                         .contentType(MediaType.APPLICATION_JSON)
                         .content(objectMapper.writeValueAsString(
-                                new RegisterRequest("+919876543210", false))))
+                                new RegisterRequest("+919876543210", null, false))))
                 .andExpect(status().isBadRequest())
                 .andExpect(jsonPath("$.code").value("VALIDATION_ERROR"));
     }

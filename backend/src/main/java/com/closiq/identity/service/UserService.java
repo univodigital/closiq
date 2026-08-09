@@ -4,6 +4,7 @@ import com.closiq.common.security.RoleType;
 import com.closiq.common.security.UserPrincipal;
 import com.closiq.common.identifier.UserCodeGenerator;
 import com.closiq.common.util.IdGenerator;
+import com.closiq.identity.domain.Gender;
 import com.closiq.identity.domain.Role;
 import com.closiq.identity.domain.User;
 import com.closiq.identity.domain.UserProfile;
@@ -83,6 +84,7 @@ public class UserService {
                 .user(user)
                 .firstName(firstName)
                 .lastName(lastName)
+                .gender(Gender.PREFER_NOT_TO_SAY)
                 .displayName(buildDisplayName(firstName, lastName))
                 .build();
         userProfileRepository.save(profile);
@@ -92,7 +94,14 @@ public class UserService {
     }
 
     @Transactional
-    public User createUserWithUsername(String phone, String username, String passwordHash, String email) {
+    public User createUserWithUsername(
+            String phone,
+            String username,
+            String passwordHash,
+            String email,
+            String firstName,
+            String lastName,
+            Gender gender) {
         User user = User.builder()
                 .id(IdGenerator.uuidV7())
                 .userCode(userCodeGenerator.nextCode())
@@ -108,9 +117,10 @@ public class UserService {
         UserProfile profile = UserProfile.builder()
                 .user(user)
                 .username(username)
-                .firstName(username)
-                .lastName("")
-                .displayName(username)
+                .firstName(firstName)
+                .lastName(lastName)
+                .gender(gender)
+                .displayName(buildDisplayName(firstName, lastName))
                 .build();
         userProfileRepository.save(profile);
 

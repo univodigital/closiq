@@ -8,12 +8,14 @@ import com.closiq.identity.domain.OtpSession;
 import com.closiq.identity.domain.OtpSessionStatus;
 import com.closiq.identity.repository.OtpSessionRepository;
 import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.time.Instant;
 import java.util.UUID;
 
+@Slf4j
 @Service
 @RequiredArgsConstructor
 public class OtpService {
@@ -48,7 +50,11 @@ public class OtpService {
                 .build();
 
         otpSessionRepository.save(session);
-        otpSender.sendOtp(phone, email, otp, purpose.name());
+        try {
+            otpSender.sendOtp(phone, email, otp, purpose.name());
+        } catch (Exception ex) {
+            log.warn("OTP delivery failed for {} ({}): {}", phone, purpose, ex.getMessage());
+        }
         return session;
     }
 

@@ -1,8 +1,10 @@
 package com.closiq.identity.web.dto;
 
+import com.closiq.identity.domain.Gender;
 import jakarta.validation.Valid;
 import jakarta.validation.constraints.Email;
 import jakarta.validation.constraints.NotBlank;
+import jakarta.validation.constraints.NotNull;
 import jakarta.validation.constraints.Pattern;
 import jakarta.validation.constraints.Size;
 import lombok.Value;
@@ -39,5 +41,16 @@ public class VerifyOtpRequest {
 
         @Email(message = "Email must be valid")
         String email;
+
+        @NotBlank(message = "First name is required")
+        @Size(min = 1, max = 50, message = "First name must be between 1 and 50 characters")
+        String firstName;
+
+        @NotBlank(message = "Last name is required")
+        @Size(min = 1, max = 50, message = "Last name must be between 1 and 50 characters")
+        String lastName;
+
+        @NotNull(message = "Gender is required")
+        Gender gender;
     }
 }
