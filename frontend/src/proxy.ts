@@ -7,7 +7,7 @@ const sellerPrefixes = ["/seller"];
 const adminPrefixes = ["/admin"];
 const sellerPublic = ["/seller/apply"];
 
-export function middleware(request: NextRequest) {
+export function proxy(request: NextRequest) {
   const { pathname } = request.nextUrl;
   const hasSession = request.cookies.has(SESSION_COOKIE);
 
