@@ -384,7 +384,7 @@ export function mapAvailability(raw: {
     productId: raw.productId,
     variantId: raw.variantId,
     minRentalDays: raw.minRentalDays,
-    maxRentalDays: raw.maxRentalDays ?? undefined,
+    maxRentalDays: raw.maxRentalDays ?? null,
     bufferDaysAfterReturn: raw.bufferDaysAfterReturn,
     unavailableDates: raw.unavailableDates,
     bookedRanges: raw.bookedRanges,

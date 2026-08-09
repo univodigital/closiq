@@ -170,7 +170,7 @@ export function mapSellerBooking(raw: {
     id: raw.id,
     rentalNumber: rental,
     orderNumber: raw.orderNumber ?? "",
-    orderId: raw.orderNumber,
+    orderId: raw.orderNumber ?? null,
     bookingId: rental,
     productId: raw.productId,
     productTitle: raw.productTitle,

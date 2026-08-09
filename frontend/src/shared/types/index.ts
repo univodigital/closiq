@@ -259,7 +259,7 @@ export interface AvailabilityData {
   productId: string;
   variantId: string;
   minRentalDays: number;
-  maxRentalDays: number;
+  maxRentalDays: number | null;
   bufferDaysAfterReturn: number;
   unavailableDates: string[];
   bookedRanges: Array<{ start: string; end: string; reason: string }>;
