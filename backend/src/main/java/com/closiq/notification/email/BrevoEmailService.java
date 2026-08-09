@@ -4,6 +4,7 @@ import com.closiq.config.BrevoProperties;
 import com.closiq.config.ClosiqProperties;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
 import org.springframework.stereotype.Service;
 
@@ -28,6 +29,7 @@ public class BrevoEmailService implements EmailService {
     private final HttpClient httpClient;
     private final URI sendUri;
 
+    @Autowired
     public BrevoEmailService(
             BrevoProperties brevoProperties,
             ClosiqProperties closiqProperties,
@@ -40,7 +42,16 @@ public class BrevoEmailService implements EmailService {
                 DEFAULT_SEND_URI);
     }
 
-    BrevoEmailService(
+    static BrevoEmailService forTesting(
+            BrevoProperties brevoProperties,
+            ClosiqProperties closiqProperties,
+            ObjectMapper objectMapper,
+            HttpClient httpClient,
+            URI sendUri) {
+        return new BrevoEmailService(brevoProperties, closiqProperties, objectMapper, httpClient, sendUri);
+    }
+
+    private BrevoEmailService(
             BrevoProperties brevoProperties,
             ClosiqProperties closiqProperties,
             ObjectMapper objectMapper,

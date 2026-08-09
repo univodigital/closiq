@@ -24,10 +24,15 @@ closiq.supabase.project-name=${SUPABASE_PROJECT_NAME:closiq-test}
 closiq.supabase.project-id=${SUPABASE_PROJECT_ID:}
 closiq.supabase.region=${SUPABASE_REGION:ap-south-1}
 
-# Use Supabase connection pooler (IPv4); direct host db.*.supabase.co is IPv6-only.
-spring.datasource.url=jdbc:postgresql://${DB_HOST:aws-0-ap-south-1.pooler.supabase.com}:${DB_PORT:5432}/${DB_NAME:postgres}
+# Supabase pooler (IPv4). Port 6543 = transaction mode (recommended for app servers).
+# Port 5432 = session mode (15-connection cap on free tier). prepareThreshold=0 required for 6543.
+spring.datasource.url=jdbc:postgresql://${DB_HOST:aws-0-ap-south-1.pooler.supabase.com}:${DB_PORT:6543}/${DB_NAME:postgres}?prepareThreshold=0
 spring.datasource.username=${DB_USER:}
 spring.datasource.password=${DB_PASSWORD:}
+spring.datasource.hikari.maximum-pool-size=${DB_POOL_SIZE:3}
+spring.datasource.hikari.minimum-idle=1
+spring.datasource.hikari.max-lifetime=300000
+spring.datasource.hikari.idle-timeout=60000
 
 spring.data.redis.host=${REDIS_HOST:localhost}
 spring.data.redis.port=${REDIS_PORT:6379}

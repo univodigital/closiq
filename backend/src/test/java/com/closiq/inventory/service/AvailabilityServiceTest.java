@@ -86,7 +86,7 @@ class AvailabilityServiceTest {
                 .status("ACTIVE")
                 .build();
 
-        when(productRepository.findBySlugAndDeletedAtIsNullAndStatus("emerald-draped-saree", "ACTIVE"))
+        when(productRepository.findActiveBySlugOrId("emerald-draped-saree", "ACTIVE"))
                 .thenReturn(Optional.of(product));
         when(productVariantRepository.findByIdAndProductId(VARIANT_ID, PRODUCT_ID))
                 .thenReturn(Optional.of(variant));

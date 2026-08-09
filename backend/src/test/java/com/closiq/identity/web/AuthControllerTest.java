@@ -3,6 +3,7 @@ package com.closiq.identity.web;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.closiq.common.exception.GlobalExceptionHandler;
 import com.closiq.common.security.JwtService;
+import com.closiq.config.ClosiqProperties;
 import com.closiq.identity.service.AuthService;
 import com.closiq.identity.web.dto.OtpInitiateResponse;
 import com.closiq.identity.web.dto.RegisterRequest;
@@ -40,6 +41,9 @@ class AuthControllerTest {
 
     @MockBean
     private JwtService jwtService;
+
+    @MockBean
+    private ClosiqProperties closiqProperties;
 
     @Test
     void register_returnsOtpSession() throws Exception {

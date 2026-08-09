@@ -47,7 +47,7 @@ class BrevoEmailServiceTest {
 
         closiqProperties = new ClosiqProperties();
 
-        emailService = new BrevoEmailService(
+        emailService = BrevoEmailService.forTesting(
                 brevoProperties,
                 closiqProperties,
                 OBJECT_MAPPER,
@@ -103,7 +103,7 @@ class BrevoEmailServiceTest {
     @Test
     void sendHtml_doesNotSendWhenApiKeyMissing() {
         brevoProperties.setApiKey("");
-        emailService = new BrevoEmailService(
+        emailService = BrevoEmailService.forTesting(
                 brevoProperties, closiqProperties, OBJECT_MAPPER, HttpClient.newHttpClient(), sendUri);
 
         emailService.sendOtp("user@example.com", "111111", "REGISTER");
@@ -118,7 +118,7 @@ class BrevoEmailServiceTest {
         closiqProperties.getMail().setFrom("fallback@closiq.com");
         closiqProperties.getMail().setFromName("Closiq Fallback");
 
-        emailService = new BrevoEmailService(
+        emailService = BrevoEmailService.forTesting(
                 brevoProperties, closiqProperties, OBJECT_MAPPER, HttpClient.newHttpClient(), sendUri);
         emailService.sendOtp("user@example.com", "222222", "RESET");
 
