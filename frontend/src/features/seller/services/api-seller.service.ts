@@ -25,7 +25,7 @@ import type {
   SellerListingDetail,
 } from "../types";
 import type { CheckoutService, NotificationService } from "./buyer-aux.service";
-import type { CreateSellerProductInput, SellerService } from "./seller.service";
+import type { CreateSellerProductInput, PresignedUploadData, ProductImageAttachData, SellerService } from "./seller.service";
 
 class ApiSellerService implements SellerService {
   async getProfile() {
@@ -88,6 +88,39 @@ class ApiSellerService implements SellerService {
         primaryImageUrl: raw.primaryImageUrl ?? null,
       }),
     } satisfies ApiResponse<SellerListing>;
+  }
+
+  async requestProductImageUpload(
+    productId: string,
+    input: { contentType: string; fileName: string },
+  ) {
+    return apiFetchEnvelope<PresignedUploadData>(
+      `/seller/products/${encodeURIComponent(productId)}/images/upload-url`,
+      {
+        method: "POST",
+        body: JSON.stringify(input),
+      },
+    );
+  }
+
+  async confirmProductImage(
+    productId: string,
+    input: { uploadId: string; sortOrder: number; alt?: string },
+  ) {
+    return apiFetchEnvelope<ProductImageAttachData>(
+      `/seller/products/${encodeURIComponent(productId)}/images`,
+      {
+        method: "POST",
+        body: JSON.stringify(input),
+      },
+    );
+  }
+
+  async publishProduct(productId: string) {
+    return apiFetchEnvelope<{ status: string; publishedAt: string }>(
+      `/seller/products/${encodeURIComponent(productId)}/publish`,
+      { method: "POST", body: "{}" },
+    );
   }
 
   async listInventoryBlocks() {

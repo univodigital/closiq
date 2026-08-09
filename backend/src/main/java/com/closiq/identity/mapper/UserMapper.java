@@ -23,6 +23,7 @@ public interface UserMapper {
     @Mapping(target = "alternateEmail", source = "user.alternateEmail")
     @Mapping(target = "firstName", source = "profile.firstName")
     @Mapping(target = "lastName", source = "profile.lastName")
+    @Mapping(target = "username", source = "profile.username")
     @Mapping(target = "displayName", source = "profile.displayName")
     @Mapping(target = "avatarUrl", ignore = true)
     @Mapping(target = "roles", source = "roles")

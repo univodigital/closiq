@@ -92,6 +92,48 @@ public class UserService {
     }
 
     @Transactional
+    public User createUserWithUsername(String phone, String username, String passwordHash, String email) {
+        User user = User.builder()
+                .id(IdGenerator.uuidV7())
+                .userCode(userCodeGenerator.nextCode())
+                .phone(phone)
+                .phoneVerified(true)
+                .email(email)
+                .emailVerified(false)
+                .passwordHash(passwordHash)
+                .status(UserStatus.ACTIVE)
+                .build();
+        user = userRepository.save(user);
+
+        UserProfile profile = UserProfile.builder()
+                .user(user)
+                .username(username)
+                .firstName(username)
+                .lastName("")
+                .displayName(username)
+                .build();
+        userProfileRepository.save(profile);
+
+        assignRole(user, RoleType.CUSTOMER);
+        return user;
+    }
+
+    @Transactional(readOnly = true)
+    public User findByUsername(String username) {
+        return userProfileRepository.findByUsernameIgnoreCase(username)
+                .map(UserProfile::getUser)
+                .filter(user -> user.getDeletedAt() == null && user.getStatus() == UserStatus.ACTIVE)
+                .orElseThrow(() -> new com.closiq.common.exception.ClosiqException(
+                        com.closiq.common.exception.ErrorCode.UNAUTHORIZED,
+                        "Invalid phone/username or password"));
+    }
+
+    @Transactional(readOnly = true)
+    public boolean usernameExists(String username) {
+        return userProfileRepository.existsByUsernameIgnoreCase(username);
+    }
+
+    @Transactional
     public void assignRole(User user, RoleType roleType) {
         Role role = roleRepository.findByCode(roleType.name())
                 .orElseThrow(() -> new IllegalStateException("Role not seeded: " + roleType));

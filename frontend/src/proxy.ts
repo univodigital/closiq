@@ -38,7 +38,13 @@ export function proxy(request: NextRequest) {
     return NextResponse.redirect(url);
   }
 
-  if ((pathname === "/login" || pathname.startsWith("/signup")) && hasSession) {
+  if (
+    (pathname === "/login"
+      || pathname.startsWith("/signup")
+      || pathname === "/forgot-password"
+      || pathname === "/reset-password")
+    && hasSession
+  ) {
     return NextResponse.redirect(new URL("/", request.url));
   }
 
@@ -56,5 +62,7 @@ export const config = {
     "/admin/:path*",
     "/login",
     "/signup/:path*",
+    "/forgot-password",
+    "/reset-password",
   ],
 };

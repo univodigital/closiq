@@ -1,10 +1,11 @@
 "use client";
 
 import Link from "next/link";
-import Image from "next/image";
-import { useQuery } from "@tanstack/react-query";
+import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { useParams, useRouter } from "next/navigation";
-import { useEffect } from "react";
+import { useEffect, useState } from "react";
+import { toast } from "sonner";
+import { ProductImageUpload } from "@/features/seller/components/ProductImageUpload";
 import { sellerService } from "@/features/seller/services";
 import { PageHeader } from "@/shared/components/layout/Container";
 import { Button } from "@/components/ui/button";
@@ -12,11 +13,14 @@ import { Card, CardContent } from "@/components/ui/card";
 import { StatusBadge } from "@/components/ui/badge";
 import { formatCurrency } from "@/lib/format";
 import { ROUTES } from "@/shared/constants/routes";
+import { ApiError } from "@/lib/api-client";
 
 export default function SellerProductDetailPage() {
   const params = useParams<{ id: string }>();
   const router = useRouter();
+  const queryClient = useQueryClient();
   const productId = params.id;
+  const [publishing, setPublishing] = useState(false);
 
   useEffect(() => {
     if (productId === "new") {
@@ -31,6 +35,32 @@ export default function SellerProductDetailPage() {
   });
 
   const product = data?.data;
+  const isDraft = product?.status === "DRAFT";
+
+  async function handlePublish() {
+    if (!product) return;
+
+    if (product.imageUrls.length < 1) {
+      toast.error("Add at least one photo before publishing");
+      return;
+    }
+
+    setPublishing(true);
+    try {
+      await sellerService.publishProduct(product.id);
+      toast.success("Listing published");
+      await queryClient.invalidateQueries({ queryKey: ["seller", "products", productId] });
+      await queryClient.invalidateQueries({ queryKey: ["seller", "products"] });
+    } catch (err) {
+      toast.error(err instanceof ApiError ? err.message : "Could not publish listing");
+    } finally {
+      setPublishing(false);
+    }
+  }
+
+  function refreshProduct() {
+    void queryClient.invalidateQueries({ queryKey: ["seller", "products", productId] });
+  }
 
   if (isLoading) {
     return <p className="text-muted-foreground">Loading listing…</p>;
@@ -51,20 +81,35 @@ export default function SellerProductDetailPage() {
     <div>
       <div className="mb-8 flex flex-wrap items-end justify-between gap-4">
         <PageHeader title={product.title} description={product.productCode} />
-        <Button asChild variant="outline" size="sm">
-          <Link href={ROUTES.seller.products}>All listings</Link>
-        </Button>
+        <div className="flex flex-wrap gap-2">
+          {isDraft && (
+            <Button
+              variant="primary"
+              size="sm"
+              disabled={publishing || product.imageUrls.length < 1}
+              onClick={() => void handlePublish()}
+            >
+              {publishing ? "Publishing…" : "Publish listing"}
+            </Button>
+          )}
+          <Button asChild variant="outline" size="sm">
+            <Link href={ROUTES.seller.products}>All listings</Link>
+          </Button>
+        </div>
       </div>
 
       <div className="grid gap-8 lg:grid-cols-[minmax(0,1fr)_320px]">
         <div className="space-y-6">
-          <div className="grid gap-3 sm:grid-cols-2">
-            {product.imageUrls.map((url) => (
-              <div key={url} className="relative aspect-[3/4] overflow-hidden rounded-sm bg-muted">
-                <Image src={url} alt={product.title} fill className="object-cover" sizes="(max-width:768px) 100vw, 40vw" />
-              </div>
-            ))}
-          </div>
+          <Card>
+            <CardContent className="p-6">
+              <ProductImageUpload
+                productId={product.id}
+                imageUrls={product.imageUrls}
+                onUploaded={refreshProduct}
+              />
+            </CardContent>
+          </Card>
+
           <Card>
             <CardContent className="space-y-3 p-6">
               <p className="label-caps text-muted-foreground">Description</p>
@@ -92,6 +137,12 @@ export default function SellerProductDetailPage() {
                 <div>
                   <p className="label-caps text-muted-foreground">Audience</p>
                   <p className="mt-1 capitalize">{product.audience}</p>
+                </div>
+              )}
+              {product.garmentType && (
+                <div>
+                  <p className="label-caps text-muted-foreground">Garment type</p>
+                  <p className="mt-1 capitalize">{product.garmentType.replace(/-/g, " ")}</p>
                 </div>
               )}
             </CardContent>

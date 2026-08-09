@@ -10,6 +10,7 @@ import {
 } from "react";
 import type { User, UserRole } from "@/shared/types";
 import { authService } from "@/features/auth/services";
+import type { RegistrationProfile } from "@/features/auth/services/auth.service";
 import { fetchUserAddresses, fetchUserProfile } from "@/features/user/services";
 import { SESSION_COOKIE } from "@/shared/constants/routes";
 
@@ -19,11 +20,9 @@ interface AuthContextValue {
   isAuthenticated: boolean;
   hasRole: (role: UserRole) => boolean;
   login: (phone: string) => Promise<{ otpSessionId: string }>;
-  verifyOtp: (
-    otpSessionId: string,
-    otp: string,
-    profile?: { firstName: string; lastName: string; email?: string },
-  ) => Promise<void>;
+  loginWithPassword: (identifier: string, password: string) => Promise<void>;
+  verifyOtp: (otpSessionId: string, otp: string, profile?: RegistrationProfile) => Promise<void>;
+  resetPassword: (otpSessionId: string, otp: string, newPassword: string) => Promise<void>;
   logout: () => Promise<void>;
   refreshUser: () => Promise<void>;
 }
@@ -89,13 +88,25 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     return authService.login(phone);
   }, []);
 
+  const loginWithPassword = useCallback(
+    async (identifier: string, password: string) => {
+      await authService.loginWithPassword(identifier, password);
+      await refreshUser();
+    },
+    [refreshUser],
+  );
+
   const verifyOtp = useCallback(
-    async (
-      otpSessionId: string,
-      otp: string,
-      profile?: { firstName: string; lastName: string; email?: string },
-    ) => {
+    async (otpSessionId: string, otp: string, profile?: RegistrationProfile) => {
       await authService.verifyOtp(otpSessionId, otp, profile);
+      await refreshUser();
+    },
+    [refreshUser],
+  );
+
+  const resetPassword = useCallback(
+    async (otpSessionId: string, otp: string, newPassword: string) => {
+      await authService.resetPassword(otpSessionId, otp, newPassword);
       await refreshUser();
     },
     [refreshUser],
@@ -119,11 +130,13 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       isAuthenticated: !!user,
       hasRole: (role) => user?.roles.includes(role) ?? false,
       login,
+      loginWithPassword,
       verifyOtp,
+      resetPassword,
       logout,
       refreshUser,
     }),
-    [user, isLoading, login, verifyOtp, logout, refreshUser],
+    [user, isLoading, login, loginWithPassword, verifyOtp, resetPassword, logout, refreshUser],
   );
 
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;

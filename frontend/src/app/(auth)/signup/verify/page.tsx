@@ -16,8 +16,6 @@ export default function VerifyOtpPage() {
   const mode = searchParams.get("mode") ?? "login";
   const { verifyOtp } = useAuth();
   const [otp, setOtp] = useState("");
-  const [firstName, setFirstName] = useState("");
-  const [lastName, setLastName] = useState("");
   const [loading, setLoading] = useState(false);
   const [phone, setPhone] = useState("");
 
@@ -29,16 +27,27 @@ export default function VerifyOtpPage() {
     const otpSessionId = sessionStorage.getItem("otpSessionId");
     if (!otpSessionId) {
       toast.error("Session expired. Please start again.");
-      router.push(ROUTES.login);
+      router.push(mode === "register" ? ROUTES.signup : ROUTES.login);
       return;
     }
     setLoading(true);
     try {
-      await verifyOtp(
-        otpSessionId,
-        otp,
-        mode === "register" ? { firstName, lastName } : undefined,
-      );
+      if (mode === "register") {
+        const username = sessionStorage.getItem("registerUsername");
+        const password = sessionStorage.getItem("registerPassword");
+        if (!username || !password) {
+          toast.error("Registration details missing. Please start again.");
+          router.push(ROUTES.signup);
+          return;
+        }
+        await verifyOtp(otpSessionId, otp, { username, password });
+        sessionStorage.removeItem("registerUsername");
+        sessionStorage.removeItem("registerPassword");
+      } else {
+        await verifyOtp(otpSessionId, otp);
+      }
+      sessionStorage.removeItem("otpSessionId");
+      sessionStorage.removeItem("otpPhone");
       toast.success("Welcome to Closiq");
       router.push(returnUrl);
     } catch (e) {
@@ -57,18 +66,6 @@ export default function VerifyOtpPage() {
         </p>
       </CardHeader>
       <CardContent className="space-y-4">
-        {mode === "register" && (
-          <div className="grid grid-cols-2 gap-3">
-            <div>
-              <label className="label-caps mb-2 block text-muted-foreground">First name</label>
-              <Input value={firstName} onChange={(e) => setFirstName(e.target.value)} />
-            </div>
-            <div>
-              <label className="label-caps mb-2 block text-muted-foreground">Last name</label>
-              <Input value={lastName} onChange={(e) => setLastName(e.target.value)} />
-            </div>
-          </div>
-        )}
         <div>
           <label className="label-caps mb-2 block text-muted-foreground">6-digit code</label>
           <Input

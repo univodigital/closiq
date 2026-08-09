@@ -1,9 +1,10 @@
 import userProfile from "@/mocks/data/user-profile.json";
 import { delay } from "@/mocks/utils/delay";
-import type { AuthService } from "./auth.service";
+import type { AuthService, RegistrationProfile } from "./auth.service";
 import type { User } from "@/shared/types";
 
 const MOCK_OTP = "123456";
+const MOCK_PASSWORD = "Password1";
 let sessionActive = false;
 let currentUser: User | null = null;
 
@@ -31,11 +32,16 @@ export class MockAuthService implements AuthService {
     return { otpSessionId: `otp_${phone}`, expiresInSeconds: 300 };
   }
 
-  async verifyOtp(
-    _otpSessionId: string,
-    otp: string,
-    profile?: { firstName: string; lastName: string; email?: string },
-  ) {
+  async loginWithPassword(_identifier: string, password: string) {
+    await delay(400);
+    if (password !== MOCK_PASSWORD) {
+      throw new Error("Invalid phone/username or password");
+    }
+    sessionActive = true;
+    currentUser = mapUser(userProfile);
+  }
+
+  async verifyOtp(_otpSessionId: string, otp: string, profile?: RegistrationProfile) {
     await delay(400);
     if (otp !== MOCK_OTP) {
       throw new Error("Invalid OTP. Use 123456 for mock login.");
@@ -45,14 +51,30 @@ export class MockAuthService implements AuthService {
     currentUser = profile
       ? {
           ...base,
-          firstName: profile.firstName,
-          lastName: profile.lastName,
-          displayName: `${profile.firstName} ${profile.lastName.charAt(0)}.`,
-          email: profile.email,
+          firstName: profile.username,
+          lastName: "",
+          displayName: profile.username,
           roles: ["CUSTOMER"],
           sellerProfile: undefined,
         }
       : base;
+  }
+
+  async forgotPassword(phone: string) {
+    await delay(600);
+    return { otpSessionId: `reset_${phone}`, expiresInSeconds: 300 };
+  }
+
+  async resetPassword(_otpSessionId: string, otp: string, newPassword: string) {
+    await delay(400);
+    if (otp !== MOCK_OTP) {
+      throw new Error("Invalid OTP. Use 123456 for mock reset.");
+    }
+    if (newPassword.length < 8) {
+      throw new Error("Password too short");
+    }
+    sessionActive = true;
+    currentUser = mapUser(userProfile);
   }
 
   async logout() {

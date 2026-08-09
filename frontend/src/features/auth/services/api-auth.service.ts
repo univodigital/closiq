@@ -2,7 +2,7 @@ import { apiFetch } from "@/lib/api-client";
 import { mapSellerProfile, type RawSellerProfile } from "@/lib/api-mappers";
 import { setAccessToken } from "@/lib/auth-token";
 import type { User } from "@/shared/types";
-import type { AuthService } from "./auth.service";
+import type { AuthService, RegistrationProfile } from "./auth.service";
 
 interface OtpInitiateResponse {
   otpSessionId: string;
@@ -17,6 +17,7 @@ interface UserSummaryResponse {
   email?: string;
   emailVerified?: boolean;
   alternateEmail?: string;
+  username?: string;
   firstName: string;
   lastName: string;
   displayName: string;
@@ -52,6 +53,10 @@ function mapUser(raw: UserSummaryResponse): User {
   };
 }
 
+function storeAuthToken(data: AuthTokenResponse) {
+  setAccessToken(data.accessToken);
+}
+
 export class ApiAuthService implements AuthService {
   async register(phone: string, acceptTerms = true) {
     const data = await apiFetch<OtpInitiateResponse>("/auth/register", {
@@ -69,11 +74,15 @@ export class ApiAuthService implements AuthService {
     return { otpSessionId: data.otpSessionId, expiresInSeconds: data.expiresInSeconds };
   }
 
-  async verifyOtp(
-    otpSessionId: string,
-    otp: string,
-    profile?: { firstName: string; lastName: string; email?: string },
-  ) {
+  async loginWithPassword(identifier: string, password: string) {
+    const data = await apiFetch<AuthTokenResponse>("/auth/login-password", {
+      method: "POST",
+      body: JSON.stringify({ identifier, password }),
+    });
+    storeAuthToken(data);
+  }
+
+  async verifyOtp(otpSessionId: string, otp: string, profile?: RegistrationProfile) {
     const data = await apiFetch<AuthTokenResponse>("/auth/verify-otp", {
       method: "POST",
       body: JSON.stringify({
@@ -82,14 +91,30 @@ export class ApiAuthService implements AuthService {
         purpose: profile ? "REGISTER" : "LOGIN",
         profile: profile
           ? {
-              firstName: profile.firstName,
-              lastName: profile.lastName,
+              username: profile.username,
+              password: profile.password,
               email: profile.email,
             }
           : undefined,
       }),
     });
-    setAccessToken(data.accessToken);
+    storeAuthToken(data);
+  }
+
+  async forgotPassword(phone: string) {
+    const data = await apiFetch<OtpInitiateResponse>("/auth/forgot-password", {
+      method: "POST",
+      body: JSON.stringify({ phone }),
+    });
+    return { otpSessionId: data.otpSessionId, expiresInSeconds: data.expiresInSeconds };
+  }
+
+  async resetPassword(otpSessionId: string, otp: string, newPassword: string) {
+    const data = await apiFetch<AuthTokenResponse>("/auth/reset-password", {
+      method: "POST",
+      body: JSON.stringify({ otpSessionId, otp, newPassword }),
+    });
+    storeAuthToken(data);
   }
 
   async logout() {

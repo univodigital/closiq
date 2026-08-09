@@ -10,8 +10,8 @@ import com.closiq.identity.service.RefreshTokenService;
 import com.closiq.identity.web.dto.AuthTokenResponse;
 import com.closiq.identity.web.dto.ForgotPasswordRequest;
 import com.closiq.identity.web.dto.LoginRequest;
-import com.closiq.identity.web.dto.MessageResponse;
 import com.closiq.identity.web.dto.OtpInitiateResponse;
+import com.closiq.identity.web.dto.PasswordLoginRequest;
 import com.closiq.identity.web.dto.RefreshTokenResponse;
 import com.closiq.identity.web.dto.RegisterRequest;
 import com.closiq.identity.web.dto.ResetPasswordRequest;
@@ -70,6 +70,23 @@ public class AuthController {
 
         OtpInitiateResponse response = authService.login(request.getPhone());
         return ResponseEntity.ok(ApiResponse.ok(response, ClosiqRequestIdFilter.getRequestId(httpRequest)));
+    }
+
+    @PostMapping("/login-password")
+    @Operation(summary = "Login with phone/username and password")
+    public ResponseEntity<ApiResponse<AuthTokenResponse>> loginWithPassword(
+            @Valid @RequestBody PasswordLoginRequest request,
+            HttpServletRequest httpRequest,
+            HttpServletResponse httpResponse) {
+
+        AuthSessionResult.TokenPair result = authService.loginWithPassword(
+                request.getIdentifier(),
+                request.getPassword(),
+                httpRequest.getRemoteAddr(),
+                httpRequest.getHeader("User-Agent"));
+
+        writeRefreshCookie(httpResponse, result.getRawRefreshToken());
+        return ResponseEntity.ok(ApiResponse.ok(result.getAuth(), ClosiqRequestIdFilter.getRequestId(httpRequest)));
     }
 
     @PostMapping("/verify-otp")
@@ -131,12 +148,12 @@ public class AuthController {
     }
 
     @PostMapping("/forgot-password")
-    @Operation(summary = "Initiate password reset for email users")
-    public ResponseEntity<ApiResponse<MessageResponse>> forgotPassword(
+    @Operation(summary = "Send OTP to reset password via phone")
+    public ResponseEntity<ApiResponse<OtpInitiateResponse>> forgotPassword(
             @Valid @RequestBody ForgotPasswordRequest request,
             HttpServletRequest httpRequest) {
 
-        MessageResponse response = authService.forgotPassword(request.getEmail());
+        OtpInitiateResponse response = authService.forgotPassword(request.getPhone());
         return ResponseEntity.ok(ApiResponse.ok(response, ClosiqRequestIdFilter.getRequestId(httpRequest)));
     }
 

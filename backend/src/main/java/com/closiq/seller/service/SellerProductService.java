@@ -123,6 +123,8 @@ public class SellerProductService {
                 .currencyCode("INR")
                 .sellerProfileId(seller.getId())
                 .city(request.getCity())
+                .audience(request.getAudience().toLowerCase(Locale.ROOT))
+                .garmentType(request.getGarmentType())
                 .minRentalDays((short) 1)
                 .maxRentalDays((short) 14)
                 .cleaningBufferDays((short) 1)
