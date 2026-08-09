@@ -1,0 +1,50 @@
+{
+  "sellerId": "seller_001",
+  "currency": "INR",
+  "availableBalance": 8900,
+  "pendingBalance": 12400,
+  "totalEarned": 156800,
+  "totalWithdrawn": 135500,
+  "transactions": [
+    {
+      "id": "txn_001",
+      "type": "earning",
+      "label": "Booking BK-2026-000391",
+      "amount": 3655,
+      "status": "completed",
+      "createdAt": "2026-08-02T09:35:00+05:30"
+    },
+    {
+      "id": "txn_002",
+      "type": "earning",
+      "label": "Booking BK-2026-000482",
+      "amount": 3312,
+      "status": "pending",
+      "createdAt": "2026-08-12T10:14:00+05:30"
+    },
+    {
+      "id": "txn_003",
+      "type": "payout",
+      "label": "Payout to HDFC ···4821",
+      "amount": -15000,
+      "status": "completed",
+      "createdAt": "2026-07-25T14:00:00+05:30"
+    },
+    {
+      "id": "txn_004",
+      "type": "commission",
+      "label": "Platform commission — BK-2026-000391",
+      "amount": -645,
+      "status": "completed",
+      "createdAt": "2026-08-02T09:35:00+05:30"
+    }
+  ],
+  "payoutMethods": [
+    {
+      "id": "payout_001",
+      "type": "bank",
+      "label": "HDFC Bank ···4821",
+      "isDefault": true
+    }
+  ]
+}

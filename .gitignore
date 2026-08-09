@@ -1,0 +1,61 @@
+# OS
+.DS_Store
+._*
+Thumbs.db
+
+# IDE / editors
+.idea/
+*.iml
+.classpath
+.project
+.settings/
+.vscode/
+*.swp
+*.swo
+*~
+
+# Monorepo migration backup (nested frontend git)
+frontend/.git.bak/
+
+# Environment & secrets (keep example templates)
+.env
+.env.*
+!.env.example
+!.env.*.example
+
+# Java / Spring Boot
+**/target/
+*.class
+*.jar
+*.war
+hs_err_pid*
+
+# Node / Next.js
+**/node_modules/
+**/.next/
+**/out/
+**/build/
+**/.vercel/
+**/coverage/
+**/*.tsbuildinfo
+**/next-env.d.ts
+
+# Logs
+*.log
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+.pnpm-debug.log*
+
+# Certificates & keys
+*.pem
+*.key
+*.p12
+*.jks
+
+# Docker local overrides
+docker-compose.override.yml
+docker-compose.*.local.yml
+
+# Local tooling
+.cursor/

@@ -1,0 +1,50 @@
+[
+  {
+    "id": "rev_001",
+    "productId": "prod_001",
+    "orderId": "ord_20150",
+    "rating": 5,
+    "title": "Fit exactly to the measurements chart",
+    "body": "Fit exactly to the measurements chart. Delivery agent even helped adjust the pin.",
+    "authorName": "Ananya",
+    "authorContext": "Wedding guest",
+    "image": "https://images.unsplash.com/photo-1550639525-c97d455acf70?auto=format&fit=crop&w=400&q=70",
+    "createdAt": "2026-07-20T10:00:00Z"
+  },
+  {
+    "id": "rev_002",
+    "productId": "prod_001",
+    "orderId": "ord_20088",
+    "rating": 5,
+    "title": "Used the 15-minute trial and swapped size",
+    "body": "Used the 15-minute trial and swapped size — no stress at all.",
+    "authorName": "Rhea",
+    "authorContext": "Sangeet",
+    "image": "https://images.unsplash.com/photo-1509631179647-0177331693ae?auto=format&fit=crop&w=400&q=70",
+    "createdAt": "2026-07-15T10:00:00Z"
+  },
+  {
+    "id": "rev_003",
+    "productId": "prod_002",
+    "orderId": "ord_19990",
+    "rating": 5,
+    "title": "Deposit refunded within two days",
+    "body": "Deposit refunded within two days of return. Very smooth.",
+    "authorName": "Kabir",
+    "authorContext": "Office gala",
+    "image": "https://images.unsplash.com/photo-1487222477894-8943e31ef7b2?auto=format&fit=crop&w=400&q=70",
+    "createdAt": "2026-07-10T10:00:00Z"
+  },
+  {
+    "id": "rev_004",
+    "productId": "prod_003",
+    "orderId": "ord_20102",
+    "rating": 4,
+    "title": "Better fabric than expected",
+    "body": "Better fabric than I expected for a rental. Will rent again.",
+    "authorName": "Priya",
+    "authorContext": "Festival",
+    "image": "https://images.unsplash.com/photo-1502716119720-b23a93e5fe1b?auto=format&fit=crop&w=400&q=70",
+    "createdAt": "2026-07-14T10:00:00Z"
+  }
+]

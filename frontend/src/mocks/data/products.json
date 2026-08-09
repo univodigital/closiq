@@ -1,0 +1,193 @@
+[
+  {
+    "id": "prod_001",
+    "slug": "emerald-draped-saree",
+    "title": "Emerald draped saree",
+    "designer": "House of Meera",
+    "description": "Pure silk with zari border. Runs true to size through the blouse; most renters in size S report a comfortable fit at 34–36 in bust.",
+    "categoryId": "cat_wedding",
+    "occasion": "wedding",
+    "audience": "women",
+    "garmentType": "sarees",
+    "images": [
+      "https://images.unsplash.com/photo-1596783074918-c84cb06531ca?auto=format&fit=crop&w=1200&q=80",
+      "https://images.unsplash.com/photo-1519741497674-611481863552?auto=format&fit=crop&w=800&q=80",
+      "https://images.unsplash.com/photo-1533709752211-118fcaf03312?auto=format&fit=crop&w=800&q=80"
+    ],
+    "pricePerDay": 1299,
+    "deposit": 3500,
+    "currency": "INR",
+    "variants": [
+      { "id": "var_001_xs", "size": "XS", "available": true },
+      { "id": "var_001_s", "size": "S", "available": true },
+      { "id": "var_001_m", "size": "M", "available": true },
+      { "id": "var_001_l", "size": "L", "available": false }
+    ],
+    "rating": 4.9,
+    "reviewCount": 47,
+    "badges": ["2 left", "includes_trial"],
+    "sellerId": "seller_001",
+    "sellerName": "House of Meera",
+    "city": "Mumbai",
+    "deliverablePincodes": ["400001", "400050", "400076"],
+    "includesTrial": true,
+    "trending": false,
+    "createdAt": "2026-07-28T10:00:00Z"
+  },
+  {
+    "id": "prod_002",
+    "slug": "ivory-bias-cut-gown",
+    "title": "Ivory bias-cut gown",
+    "designer": "Atelier Noir",
+    "description": "Fluid satin gown with cowl neckline. Ideal for cocktail evenings and reception dinners.",
+    "categoryId": "cat_party",
+    "occasion": "party",
+    "audience": "women",
+    "garmentType": "gowns",
+    "images": [
+      "https://images.unsplash.com/photo-1568252542512-9fe8fe9c87bb?auto=format&fit=crop&w=1200&q=80"
+    ],
+    "pricePerDay": 2150,
+    "deposit": 5000,
+    "currency": "INR",
+    "variants": [
+      { "id": "var_002_xs", "size": "XS", "available": true },
+      { "id": "var_002_s", "size": "S", "available": true }
+    ],
+    "rating": 4.8,
+    "reviewCount": 31,
+    "badges": ["includes_trial"],
+    "sellerId": "seller_002",
+    "sellerName": "Atelier Noir",
+    "city": "Mumbai",
+    "deliverablePincodes": ["400001", "400052", "400706"],
+    "includesTrial": true,
+    "trending": true,
+    "createdAt": "2026-07-25T10:00:00Z"
+  },
+  {
+    "id": "prod_003",
+    "slug": "sequin-cocktail-dress",
+    "title": "Sequin cocktail dress",
+    "designer": "Studio Rhea",
+    "description": "Hand-embellished sequins with structured shoulders. Photographs beautifully under evening light.",
+    "categoryId": "cat_party",
+    "occasion": "party",
+    "audience": "women",
+    "garmentType": "indo-western",
+    "images": [
+      "https://images.unsplash.com/photo-1515886657613-9f3515b0c78f?auto=format&fit=crop&w=1200&q=80"
+    ],
+    "pricePerDay": 950,
+    "deposit": 2500,
+    "currency": "INR",
+    "variants": [
+      { "id": "var_003_s", "size": "S", "available": true },
+      { "id": "var_003_m", "size": "M", "available": true }
+    ],
+    "rating": 4.7,
+    "reviewCount": 22,
+    "badges": ["trending", "includes_trial"],
+    "sellerId": "seller_003",
+    "sellerName": "Studio Rhea",
+    "city": "Mumbai",
+    "deliverablePincodes": ["400001", "400028", "400050"],
+    "includesTrial": true,
+    "trending": true,
+    "createdAt": "2026-07-30T10:00:00Z"
+  },
+  {
+    "id": "prod_004",
+    "slug": "tailored-blazer-set",
+    "title": "Tailored blazer set",
+    "designer": "Form & Fold",
+    "description": "Structured blazer with matching wide-leg trousers. Power dressing for office galas and panel events.",
+    "categoryId": "cat_office",
+    "occasion": "office",
+    "audience": "women",
+    "garmentType": "indo-western",
+    "images": [
+      "https://images.unsplash.com/photo-1515372039744-b8f02a3ae446?auto=format&fit=crop&w=1200&q=80"
+    ],
+    "pricePerDay": 700,
+    "deposit": 2000,
+    "currency": "INR",
+    "variants": [
+      { "id": "var_004_m", "size": "M", "available": true },
+      { "id": "var_004_l", "size": "L", "available": true },
+      { "id": "var_004_xl", "size": "XL", "available": true }
+    ],
+    "rating": 4.6,
+    "reviewCount": 18,
+    "badges": ["includes_trial"],
+    "sellerId": "seller_004",
+    "sellerName": "Form & Fold",
+    "city": "Mumbai",
+    "deliverablePincodes": ["400001", "400051", "400703"],
+    "includesTrial": true,
+    "trending": false,
+    "createdAt": "2026-08-01T10:00:00Z"
+  },
+  {
+    "id": "prod_005",
+    "slug": "midnight-embroidered-sherwani",
+    "title": "Midnight embroidered sherwani",
+    "designer": "Atelier Noir",
+    "description": "Silk sherwani with tonal embroidery. Ideal for wedding ceremonies and sangeet nights.",
+    "categoryId": "cat_wedding",
+    "occasion": "wedding",
+    "audience": "men",
+    "garmentType": "sherwanis",
+    "images": [
+      "https://images.unsplash.com/photo-1594938298603-c8148c4dae35?auto=format&fit=crop&w=1200&q=80"
+    ],
+    "pricePerDay": 1899,
+    "deposit": 4500,
+    "currency": "INR",
+    "variants": [
+      { "id": "var_005_m", "size": "M", "available": true },
+      { "id": "var_005_l", "size": "L", "available": true }
+    ],
+    "rating": 4.8,
+    "reviewCount": 19,
+    "badges": ["includes_trial"],
+    "sellerId": "seller_002",
+    "sellerName": "Atelier Noir",
+    "city": "Mumbai",
+    "deliverablePincodes": ["400001", "400050", "400051"],
+    "includesTrial": true,
+    "trending": false,
+    "createdAt": "2026-07-22T10:00:00Z"
+  },
+  {
+    "id": "prod_006",
+    "slug": "blush-kids-lehenga-set",
+    "title": "Blush kids lehenga set",
+    "designer": "House of Meera",
+    "description": "Lightweight lehenga with soft dupatta. Comfortable for festivals and family weddings.",
+    "categoryId": "cat_festival",
+    "occasion": "festival",
+    "audience": "kids",
+    "garmentType": "lehengas",
+    "images": [
+      "https://images.unsplash.com/photo-1519238263530-99bdd11df2ea?auto=format&fit=crop&w=1200&q=80"
+    ],
+    "pricePerDay": 650,
+    "deposit": 1500,
+    "currency": "INR",
+    "variants": [
+      { "id": "var_006_6y", "size": "6Y", "available": true },
+      { "id": "var_006_8y", "size": "8Y", "available": true }
+    ],
+    "rating": 4.9,
+    "reviewCount": 12,
+    "badges": ["trending", "includes_trial"],
+    "sellerId": "seller_001",
+    "sellerName": "House of Meera",
+    "city": "Mumbai",
+    "deliverablePincodes": ["400001", "400026", "400050"],
+    "includesTrial": true,
+    "trending": true,
+    "createdAt": "2026-07-18T10:00:00Z"
+  }
+]

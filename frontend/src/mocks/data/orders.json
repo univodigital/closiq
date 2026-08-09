@@ -1,0 +1,113 @@
+[
+  {
+    "id": "ord_20481",
+    "orderNumber": "AT-20481",
+    "bookingId": "BK-2026-000482",
+    "status": "trial_ready",
+    "productId": "prod_001",
+    "productTitle": "Emerald draped saree",
+    "productImage": "https://images.unsplash.com/photo-1596783074918-c84cb06531ca?auto=format&fit=crop&w=400&q=70",
+    "variantSize": "S",
+    "rentalStart": "2026-08-14",
+    "rentalEnd": "2026-08-17",
+    "rentalDays": 3,
+    "rentalAmount": 3897,
+    "depositAmount": 3500,
+    "deliveryFee": 0,
+    "totalPaid": 7397,
+    "currency": "INR",
+    "deliveryAddress": {
+      "line1": "14 Altamount Road",
+      "line2": "Flat 3B",
+      "city": "Mumbai",
+      "state": "Maharashtra",
+      "pincode": "400026"
+    },
+    "includesTrial": true,
+    "trialDurationMinutes": 15,
+    "createdAt": "2026-08-12T10:14:00+05:30",
+    "timeline": [
+      { "status": "confirmed", "label": "Order confirmed", "timestamp": "2026-08-12T10:14:00+05:30", "completed": true },
+      { "status": "out_for_delivery", "label": "Out for delivery", "timestamp": "2026-08-14T09:02:00+05:30", "completed": true },
+      { "status": "trial_ready", "label": "Trial ready — agent at your door", "timestamp": "2026-08-14T09:41:00+05:30", "completed": false, "current": true },
+      { "status": "rental_active", "label": "Rental active", "timestamp": null, "completed": false, "pending": true },
+      { "status": "return_scheduled", "label": "Return pickup scheduled", "timestamp": null, "completed": false, "pending": true },
+      { "status": "returned", "label": "Returned & inspected", "timestamp": null, "completed": false, "pending": true },
+      { "status": "deposit_refunded", "label": "Deposit refunded", "timestamp": null, "completed": false, "pending": true }
+    ]
+  },
+  {
+    "id": "ord_20355",
+    "orderNumber": "AT-20355",
+    "bookingId": "BK-2026-000391",
+    "status": "rental_active",
+    "productId": "prod_002",
+    "productTitle": "Ivory bias-cut gown",
+    "productImage": "https://images.unsplash.com/photo-1568252542512-9fe8fe9c87bb?auto=format&fit=crop&w=400&q=70",
+    "variantSize": "S",
+    "rentalStart": "2026-08-02",
+    "rentalEnd": "2026-08-04",
+    "rentalDays": 2,
+    "rentalAmount": 4300,
+    "depositAmount": 5000,
+    "deliveryFee": 0,
+    "totalPaid": 9300,
+    "currency": "INR",
+    "deliveryAddress": {
+      "line1": "Bandra West",
+      "line2": "Pali Hill, 7th floor",
+      "city": "Mumbai",
+      "state": "Maharashtra",
+      "pincode": "400050"
+    },
+    "includesTrial": true,
+    "trialDurationMinutes": 15,
+    "createdAt": "2026-07-30T14:22:00+05:30",
+    "timeline": [
+      { "status": "confirmed", "label": "Order confirmed", "timestamp": "2026-07-30T14:22:00+05:30", "completed": true },
+      { "status": "out_for_delivery", "label": "Out for delivery", "timestamp": "2026-08-02T08:45:00+05:30", "completed": true },
+      { "status": "trial_ready", "label": "Trial completed — kept", "timestamp": "2026-08-02T09:12:00+05:30", "completed": true },
+      { "status": "rental_active", "label": "Rental active", "timestamp": "2026-08-02T09:27:00+05:30", "completed": false, "current": true },
+      { "status": "return_scheduled", "label": "Return pickup scheduled", "timestamp": "2026-08-04T10:00:00+05:30", "completed": false, "pending": true },
+      { "status": "returned", "label": "Returned & inspected", "timestamp": null, "completed": false, "pending": true },
+      { "status": "deposit_refunded", "label": "Deposit refunded", "timestamp": null, "completed": false, "pending": true }
+    ]
+  },
+  {
+    "id": "ord_20102",
+    "orderNumber": "AT-20102",
+    "bookingId": "BK-2026-000210",
+    "status": "deposit_refunded",
+    "productId": "prod_003",
+    "productTitle": "Sequin cocktail dress",
+    "productImage": "https://images.unsplash.com/photo-1515886657613-9f3515b0c78f?auto=format&fit=crop&w=400&q=70",
+    "variantSize": "M",
+    "rentalStart": "2026-07-10",
+    "rentalEnd": "2026-07-12",
+    "rentalDays": 2,
+    "rentalAmount": 1900,
+    "depositAmount": 2500,
+    "deliveryFee": 0,
+    "totalPaid": 4400,
+    "currency": "INR",
+    "deliveryAddress": {
+      "line1": "Lower Parel",
+      "line2": "Indiabulls Finance Centre",
+      "city": "Mumbai",
+      "state": "Maharashtra",
+      "pincode": "400013"
+    },
+    "includesTrial": true,
+    "trialDurationMinutes": 15,
+    "createdAt": "2026-07-08T11:00:00+05:30",
+    "timeline": [
+      { "status": "confirmed", "label": "Order confirmed", "timestamp": "2026-07-08T11:00:00+05:30", "completed": true },
+      { "status": "out_for_delivery", "label": "Out for delivery", "timestamp": "2026-07-10T09:00:00+05:30", "completed": true },
+      { "status": "trial_ready", "label": "Trial completed — kept", "timestamp": "2026-07-10T09:20:00+05:30", "completed": true },
+      { "status": "rental_active", "label": "Rental active", "timestamp": "2026-07-10T09:35:00+05:30", "completed": true },
+      { "status": "return_scheduled", "label": "Return pickup completed", "timestamp": "2026-07-12T11:30:00+05:30", "completed": true },
+      { "status": "returned", "label": "Returned & inspected", "timestamp": "2026-07-12T18:00:00+05:30", "completed": true },
+      { "status": "deposit_refunded", "label": "Deposit refunded", "timestamp": "2026-07-14T10:00:00+05:30", "completed": true, "current": true }
+    ]
+  }
+]
