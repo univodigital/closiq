@@ -2,9 +2,9 @@
 
 import { useState } from "react";
 import Link from "next/link";
-import { useRouter } from "next/navigation";
-import { useQuery } from "@tanstack/react-query";
+import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { toast } from "sonner";
+import { ProductImageUpload } from "@/features/seller/components/ProductImageUpload";
 import { sellerService, type CreateSellerProductInput } from "@/features/seller/services";
 import { categoryService } from "@/features/products/services";
 import { PageHeader } from "@/shared/components/layout/Container";
@@ -12,12 +12,18 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Card, CardContent } from "@/components/ui/card";
 import { ROUTES } from "@/shared/constants/routes";
+import {
+  SHOP_AUDIENCE_LABELS,
+  SHOP_AUDIENCE_SLUGS,
+  shopGarmentCategories,
+  type ShopAudienceSlug,
+} from "@/shared/constants/shop-nav";
 import { ApiError } from "@/lib/api-client";
 
 const DEFAULT_VARIANT = { size: "M", quantity: 1 };
 
 export default function SellerProductNewPage() {
-  const router = useRouter();
+  const queryClient = useQueryClient();
   const categories = useQuery({
     queryKey: ["categories"],
     queryFn: () => categoryService.listCategories(),
@@ -30,10 +36,22 @@ export default function SellerProductNewPage() {
   const [pricePerDay, setPricePerDay] = useState("");
   const [deposit, setDeposit] = useState("");
   const [city, setCity] = useState("Mumbai");
+  const [audience, setAudience] = useState<ShopAudienceSlug>("women");
+  const [garmentType, setGarmentType] = useState("sarees");
   const [variants, setVariants] = useState([DEFAULT_VARIANT]);
   const [submitting, setSubmitting] = useState(false);
+  const [publishing, setPublishing] = useState(false);
+  const [createdProductId, setCreatedProductId] = useState<string | null>(null);
+  const [imageUrls, setImageUrls] = useState<string[]>([]);
 
   const selectedCategory = categories.data?.data.find((c) => c.id === categoryId);
+  const garmentOptions = shopGarmentCategories(audience);
+
+  function handleAudienceChange(nextAudience: ShopAudienceSlug) {
+    setAudience(nextAudience);
+    const options = shopGarmentCategories(nextAudience);
+    setGarmentType(options[0]?.slug ?? "");
+  }
 
   function updateVariant(index: number, field: "size" | "quantity", value: string) {
     setVariants((current) =>
@@ -56,6 +74,11 @@ export default function SellerProductNewPage() {
       return;
     }
 
+    if (!garmentType) {
+      toast.error("Select a garment type");
+      return;
+    }
+
     if (description.trim().length < 50) {
       toast.error("Description must be at least 50 characters");
       return;
@@ -66,6 +89,8 @@ export default function SellerProductNewPage() {
       description: description.trim(),
       categoryId: selectedCategory.id,
       occasion: selectedCategory.slug,
+      audience,
+      garmentType,
       designer: designer.trim() || undefined,
       pricePerDay: Number(pricePerDay),
       deposit: Number(deposit),
@@ -76,8 +101,10 @@ export default function SellerProductNewPage() {
     setSubmitting(true);
     try {
       const res = await sellerService.createProduct(payload);
-      toast.success("Draft listing created");
-      router.push(ROUTES.seller.product(res.data.id));
+      setCreatedProductId(res.data.id);
+      setImageUrls(res.data.imageUrl ? [res.data.imageUrl] : []);
+      toast.success("Draft created — add photos below");
+      await queryClient.invalidateQueries({ queryKey: ["seller", "products"] });
     } catch (error) {
       toast.error(error instanceof ApiError ? error.message : "Could not create listing");
     } finally {
@@ -85,10 +112,44 @@ export default function SellerProductNewPage() {
     }
   }
 
+  async function refreshImages() {
+    if (!createdProductId) return;
+    const res = await sellerService.getProduct(createdProductId);
+    setImageUrls(res.data.imageUrls);
+  }
+
+  async function handlePublish() {
+    if (!createdProductId) return;
+    if (imageUrls.length < 1) {
+      toast.error("Add at least one photo before publishing");
+      return;
+    }
+
+    setPublishing(true);
+    try {
+      await sellerService.publishProduct(createdProductId);
+      toast.success("Listing published");
+      await queryClient.invalidateQueries({ queryKey: ["seller", "products"] });
+    } catch (error) {
+      toast.error(error instanceof ApiError ? error.message : "Could not publish listing");
+    } finally {
+      setPublishing(false);
+    }
+  }
+
+  const draftCreated = createdProductId !== null;
+
   return (
     <div>
       <div className="mb-8 flex flex-wrap items-end justify-between gap-4">
-        <PageHeader title="New listing" description="Create a draft — add photos and publish from the listing page." />
+        <PageHeader
+          title="New listing"
+          description={
+            draftCreated
+              ? "Draft saved. Upload photos and publish when ready."
+              : "Fill in the details, then add photos and publish."
+          }
+        />
         <Button asChild variant="outline" size="sm">
           <Link href={ROUTES.seller.products}>Cancel</Link>
         </Button>
@@ -97,6 +158,7 @@ export default function SellerProductNewPage() {
       <Card>
         <CardContent className="p-6">
           <form onSubmit={handleSubmit} className="space-y-6">
+            <fieldset disabled={draftCreated} className="space-y-6 disabled:opacity-70">
             <div>
               <label className="label-caps mb-2 block text-muted-foreground">Title</label>
               <Input
@@ -125,14 +187,14 @@ export default function SellerProductNewPage() {
 
             <div className="grid gap-4 sm:grid-cols-2">
               <div>
-                <label className="label-caps mb-2 block text-muted-foreground">Category</label>
+                <label className="label-caps mb-2 block text-muted-foreground">Occasion</label>
                 <select
                   required
                   value={categoryId}
                   onChange={(e) => setCategoryId(e.target.value)}
                   className="flex h-10 w-full rounded-sm border border-input bg-background px-3 py-2 text-sm"
                 >
-                  <option value="">Select category</option>
+                  <option value="">Select occasion</option>
                   {categories.data?.data.map((category) => (
                     <option key={category.id} value={category.id}>
                       {category.name}
@@ -149,6 +211,40 @@ export default function SellerProductNewPage() {
                   placeholder="House of Meera"
                   maxLength={100}
                 />
+              </div>
+            </div>
+
+            <div className="grid gap-4 sm:grid-cols-2">
+              <div>
+                <label className="label-caps mb-2 block text-muted-foreground">Audience</label>
+                <select
+                  required
+                  value={audience}
+                  onChange={(e) => handleAudienceChange(e.target.value as ShopAudienceSlug)}
+                  className="flex h-10 w-full rounded-sm border border-input bg-background px-3 py-2 text-sm"
+                >
+                  {SHOP_AUDIENCE_SLUGS.map((slug) => (
+                    <option key={slug} value={slug}>
+                      {SHOP_AUDIENCE_LABELS[slug]}
+                    </option>
+                  ))}
+                </select>
+              </div>
+
+              <div>
+                <label className="label-caps mb-2 block text-muted-foreground">Garment type</label>
+                <select
+                  required
+                  value={garmentType}
+                  onChange={(e) => setGarmentType(e.target.value)}
+                  className="flex h-10 w-full rounded-sm border border-input bg-background px-3 py-2 text-sm"
+                >
+                  {garmentOptions.map((option) => (
+                    <option key={option.slug} value={option.slug}>
+                      {option.label}
+                    </option>
+                  ))}
+                </select>
               </div>
             </div>
 
@@ -224,13 +320,43 @@ export default function SellerProductNewPage() {
                 ))}
               </div>
             </div>
+            </fieldset>
 
-            <Button type="submit" variant="primary" disabled={submitting || categories.isLoading}>
-              {submitting ? "Creating…" : "Create draft listing"}
-            </Button>
+            {!draftCreated ? (
+              <Button type="submit" variant="primary" disabled={submitting || categories.isLoading}>
+                {submitting ? "Creating…" : "Create draft listing"}
+              </Button>
+            ) : (
+              <p className="text-sm text-muted-foreground">Draft saved. Details are locked — add photos below.</p>
+            )}
           </form>
         </CardContent>
       </Card>
+
+      {draftCreated && createdProductId && (
+        <Card className="mt-6">
+          <CardContent className="space-y-6 p-6">
+            <ProductImageUpload
+              productId={createdProductId}
+              imageUrls={imageUrls}
+              onUploaded={() => void refreshImages()}
+            />
+            <div className="flex flex-wrap gap-3">
+              <Button
+                type="button"
+                variant="primary"
+                disabled={publishing || imageUrls.length < 1}
+                onClick={() => void handlePublish()}
+              >
+                {publishing ? "Publishing…" : "Publish listing"}
+              </Button>
+              <Button asChild variant="outline">
+                <Link href={ROUTES.seller.product(createdProductId)}>View listing</Link>
+              </Button>
+            </div>
+          </CardContent>
+        </Card>
+      )}
     </div>
   );
 }
