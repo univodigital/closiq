@@ -17,10 +17,10 @@ export default function VerifyOtpPage() {
   const { verifyOtp } = useAuth();
   const [otp, setOtp] = useState("");
   const [loading, setLoading] = useState(false);
-  const [phone, setPhone] = useState("");
+  const [deliveryHint, setDeliveryHint] = useState("your phone and email");
 
   useEffect(() => {
-    setPhone(sessionStorage.getItem("otpPhone") ?? "your phone");
+    setDeliveryHint(sessionStorage.getItem("otpDeliveryHint") ?? "your phone and email");
   }, []);
 
   const onVerify = async () => {
@@ -35,19 +35,22 @@ export default function VerifyOtpPage() {
       if (mode === "register") {
         const username = sessionStorage.getItem("registerUsername");
         const password = sessionStorage.getItem("registerPassword");
-        if (!username || !password) {
+        const email = sessionStorage.getItem("registerEmail");
+        if (!username || !password || !email) {
           toast.error("Registration details missing. Please start again.");
           router.push(ROUTES.signup);
           return;
         }
-        await verifyOtp(otpSessionId, otp, { username, password });
+        await verifyOtp(otpSessionId, otp, { username, password, email });
         sessionStorage.removeItem("registerUsername");
         sessionStorage.removeItem("registerPassword");
+        sessionStorage.removeItem("registerEmail");
       } else {
         await verifyOtp(otpSessionId, otp);
       }
       sessionStorage.removeItem("otpSessionId");
-      sessionStorage.removeItem("otpPhone");
+      sessionStorage.removeItem("otpDeliveryHint");
+      sessionStorage.removeItem("otpChannel");
       toast.success("Welcome to Closiq");
       router.push(returnUrl);
     } catch (e) {
@@ -62,7 +65,7 @@ export default function VerifyOtpPage() {
       <CardHeader>
         <CardTitle>Enter OTP</CardTitle>
         <p className="text-sm text-muted-foreground">
-          Sent to {phone}
+          Sent to {deliveryHint}
         </p>
       </CardHeader>
       <CardContent className="space-y-4">
@@ -77,11 +80,11 @@ export default function VerifyOtpPage() {
             aria-label="OTP code"
           />
         </div>
-        <Button variant="primary" size="lg" onClick={onVerify} disabled={loading || otp.length !== 6}>
+        <Button variant="primary" size="lg" className="w-full" onClick={onVerify} disabled={loading || otp.length !== 6}>
           {loading ? "Verifying…" : "Verify & continue"}
         </Button>
         <p className="text-center text-xs text-muted-foreground">
-          Check the backend console for your OTP
+          Check your SMS and email for the code
         </p>
       </CardContent>
     </Card>

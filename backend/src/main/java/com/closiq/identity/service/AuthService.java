@@ -22,6 +22,7 @@ import com.closiq.identity.web.dto.ResetPasswordRequest;
 import com.closiq.identity.web.dto.SellerProfileStubResponse;
 import com.closiq.identity.web.dto.UserSummaryResponse;
 import com.closiq.identity.web.dto.VerifyOtpRequest;
+import com.closiq.notification.email.EmailService;
 import com.closiq.user.domain.SellerProfile;
 import com.closiq.user.repository.SellerProfileRepository;
 import lombok.RequiredArgsConstructor;
@@ -50,6 +51,7 @@ public class AuthService {
     private final SellerProfileRepository sellerProfileRepository;
     private final HashUtils hashUtils;
     private final ClosiqProperties properties;
+    private final EmailService emailService;
 
     @Transactional
     public OtpInitiateResponse register(String phone) {
@@ -58,13 +60,15 @@ public class AuthService {
     }
 
     @Transactional
-    public OtpInitiateResponse login(String phone) {
-        userRepository.findByPhoneAndDeletedAtIsNull(phone)
-                .filter(User::isPhoneVerified)
-                .orElseThrow(() -> new ClosiqException(
-                        ErrorCode.PHONE_NOT_REGISTERED, ErrorCode.PHONE_NOT_REGISTERED.getDefaultDetail()));
+    public OtpInitiateResponse login(String identifier) {
+        AuthIdentifierResolver.ResolvedIdentifier resolved = AuthIdentifierResolver.resolve(identifier);
+        User user = requireVerifiedUser(resolved);
 
-        OtpSession session = otpService.createSession(phone, OtpPurpose.LOGIN);
+        String deliveryEmail = resolved.type() == AuthIdentifierResolver.Type.EMAIL
+                ? resolved.email()
+                : user.getEmail();
+
+        OtpSession session = otpService.createSession(user.getPhone(), OtpPurpose.LOGIN, deliveryEmail);
         return buildOtpInitiateResponse(session, true);
     }
 
@@ -73,7 +77,7 @@ public class AuthService {
         User user = resolveUserForPasswordLogin(identifier);
 
         if (user.getPasswordHash() == null || !hashUtils.matchesPassword(password, user.getPasswordHash())) {
-            throw new ClosiqException(ErrorCode.UNAUTHORIZED, "Invalid phone/username or password");
+            throw new ClosiqException(ErrorCode.UNAUTHORIZED, "Invalid phone/email or password");
         }
 
         user.setLastLoginAt(Instant.now());
@@ -83,13 +87,15 @@ public class AuthService {
     }
 
     @Transactional
-    public OtpInitiateResponse forgotPassword(String phone) {
-        userRepository.findByPhoneAndDeletedAtIsNull(phone)
-                .filter(User::isPhoneVerified)
-                .orElseThrow(() -> new ClosiqException(
-                        ErrorCode.PHONE_NOT_REGISTERED, ErrorCode.PHONE_NOT_REGISTERED.getDefaultDetail()));
+    public OtpInitiateResponse forgotPassword(String identifier) {
+        AuthIdentifierResolver.ResolvedIdentifier resolved = AuthIdentifierResolver.resolve(identifier);
+        User user = requireVerifiedUser(resolved);
 
-        OtpSession session = otpService.createSession(phone, OtpPurpose.RESET);
+        String deliveryEmail = resolved.type() == AuthIdentifierResolver.Type.EMAIL
+                ? resolved.email()
+                : user.getEmail();
+
+        OtpSession session = otpService.createSession(user.getPhone(), OtpPurpose.RESET, deliveryEmail);
         return buildOtpInitiateResponse(session, true);
     }
 
@@ -227,11 +233,39 @@ public class AuthService {
             throw new ClosiqException(ErrorCode.ALREADY_EXISTS, "Username is already taken");
         }
 
-        return userService.createUserWithUsername(
+        if (profile.getEmail() != null && !profile.getEmail().isBlank()) {
+            userRepository.findByEmailIgnoreCaseAndDeletedAtIsNull(profile.getEmail().trim().toLowerCase())
+                    .ifPresent(existing -> {
+                        throw new ClosiqException(ErrorCode.ALREADY_EXISTS, "Email is already registered");
+                    });
+        }
+
+        User user = userService.createUserWithUsername(
                 session.getPhone(),
                 profile.getUsername(),
                 hashUtils.hashPassword(profile.getPassword()),
-                profile.getEmail());
+                profile.getEmail() != null ? profile.getEmail().trim().toLowerCase() : null);
+
+        if (user.getEmail() != null && !user.getEmail().isBlank()) {
+            emailService.sendWelcome(user.getEmail(), profile.getUsername());
+        }
+
+        return user;
+    }
+
+    private User requireVerifiedUser(AuthIdentifierResolver.ResolvedIdentifier resolved) {
+        if (resolved.type() == AuthIdentifierResolver.Type.PHONE) {
+            return userRepository.findByPhoneAndDeletedAtIsNull(resolved.phone())
+                    .filter(User::isPhoneVerified)
+                    .orElseThrow(() -> new ClosiqException(
+                            ErrorCode.PHONE_NOT_REGISTERED, ErrorCode.PHONE_NOT_REGISTERED.getDefaultDetail()));
+        }
+
+        return userRepository.findByEmailIgnoreCaseAndDeletedAtIsNull(resolved.email())
+                .filter(user -> user.getEmail() != null && !user.getEmail().isBlank())
+                .filter(User::isPhoneVerified)
+                .orElseThrow(() -> new ClosiqException(
+                        ErrorCode.PHONE_NOT_REGISTERED, ErrorCode.PHONE_NOT_REGISTERED.getDefaultDetail()));
     }
 
     private User handleLoginVerification(Optional<User> existingUser) {
@@ -325,19 +359,17 @@ public class AuthService {
     }
 
     private User resolveUserForPasswordLogin(String identifier) {
-        String normalized = identifier;
-        if (identifier.matches("^[6-9]\\d{9}$")) {
-            normalized = "+91" + identifier;
-        }
+        AuthIdentifierResolver.ResolvedIdentifier resolved = AuthIdentifierResolver.resolve(identifier);
 
-        if (normalized.matches("^\\+91[6-9]\\d{9}$")) {
-            return userRepository.findByPhoneAndDeletedAtIsNull(normalized)
+        if (resolved.type() == AuthIdentifierResolver.Type.PHONE) {
+            return userRepository.findByPhoneAndDeletedAtIsNull(resolved.phone())
                     .filter(User::isPhoneVerified)
                     .filter(user -> user.getStatus() == com.closiq.identity.domain.UserStatus.ACTIVE)
                     .orElseThrow(() -> new ClosiqException(
-                            ErrorCode.UNAUTHORIZED, "Invalid phone/username or password"));
+                            ErrorCode.UNAUTHORIZED, "Invalid phone/email or password"));
         }
-        return userService.findByUsername(normalized);
+
+        return userService.findByEmail(resolved.email());
     }
 
     private OtpPurpose mapPurpose(String purpose) {

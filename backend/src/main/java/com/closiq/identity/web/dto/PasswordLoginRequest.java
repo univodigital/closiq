@@ -7,8 +7,8 @@ import lombok.Value;
 @Value
 public class PasswordLoginRequest {
 
-    /** Phone in E.164 format (+91XXXXXXXXXX) or username. */
-    @NotBlank(message = "Phone or username is required")
+    /** Phone in E.164 format (+91XXXXXXXXXX) or email address. */
+    @NotBlank(message = "Phone or email is required")
     @Size(max = 255, message = "Identifier is too long")
     String identifier;
 

@@ -3,6 +3,9 @@ target/
 .env.*
 !.env.example
 !.env.*.example
+
+# Local test profile — contains secrets; use application-test.properties.example as template
+src/main/resources/application-test.properties
 .idea/
 *.iml
 .classpath

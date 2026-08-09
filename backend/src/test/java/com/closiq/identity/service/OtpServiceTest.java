@@ -66,7 +66,7 @@ class OtpServiceTest {
         assertThat(session.getExpiresAt()).isAfter(Instant.now());
 
         verify(rateLimiter).checkSendAllowed("+919876543210");
-        verify(otpSender).sendOtp("+919876543210", "123456", "REGISTER");
+        verify(otpSender).sendOtp("+919876543210", null, "123456", "REGISTER");
 
         ArgumentCaptor<OtpSession> captor = ArgumentCaptor.forClass(OtpSession.class);
         verify(otpSessionRepository).save(captor.capture());

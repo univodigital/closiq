@@ -1,0 +1,54 @@
+# Copy to application-test.properties and fill in values (that file is gitignored).
+# spring.profiles.active=test is set in application.properties
+
+spring.jpa.hibernate.ddl-auto=validate
+spring.jpa.show-sql=false
+
+server.port=8081
+
+closiq.jwt.secret=${JWT_SECRET:change-me-use-at-least-256-bits}
+closiq.otp.console-log-enabled=true
+
+# SMTP (optional — when disabled, OTP/welcome emails log to console)
+closiq.mail.enabled=${MAIL_ENABLED:false}
+closiq.mail.from=${MAIL_FROM:noreply@closiq.com}
+closiq.mail.from-name=${MAIL_FROM_NAME:Closiq}
+spring.mail.host=${SMTP_HOST:}
+spring.mail.port=${SMTP_PORT:587}
+spring.mail.username=${SMTP_USERNAME:}
+spring.mail.password=${SMTP_PASSWORD:}
+spring.mail.properties.mail.smtp.auth=${SMTP_AUTH:true}
+spring.mail.properties.mail.smtp.starttls.enable=${SMTP_STARTTLS:true}
+
+logging.level.com.closiq=INFO
+
+# Supabase
+closiq.supabase.project-name=${SUPABASE_PROJECT_NAME:closiq-test}
+closiq.supabase.project-id=${SUPABASE_PROJECT_ID:}
+closiq.supabase.region=${SUPABASE_REGION:ap-south-1}
+
+# Use Supabase connection pooler (IPv4); direct host db.*.supabase.co is IPv6-only.
+spring.datasource.url=jdbc:postgresql://${DB_HOST:aws-0-ap-south-1.pooler.supabase.com}:${DB_PORT:5432}/${DB_NAME:postgres}
+spring.datasource.username=${DB_USER:}
+spring.datasource.password=${DB_PASSWORD:}
+
+spring.data.redis.host=${REDIS_HOST:localhost}
+spring.data.redis.port=${REDIS_PORT:6379}
+
+spring.flyway.baseline-on-migrate=true
+spring.flyway.baseline-version=0
+
+# Cloudinary
+closiq.cloudinary.cloud-name=${CLOUDINARY_CLOUD_NAME:}
+closiq.cloudinary.api-key=${CLOUDINARY_API_KEY:}
+closiq.cloudinary.api-secret=${CLOUDINARY_API_SECRET:}
+closiq.cloudinary.folder=${CLOUDINARY_FOLDER:closiq}
+closiq.cloudinary.stub-enabled=false
+closiq.s3.stub-enabled=true
+
+closiq.auth.refresh-cookie-secure=false
+
+# Razorpay (sandbox)
+closiq.razorpay.key-id=${RAZORPAY_KEY_ID:}
+closiq.razorpay.key-secret=${RAZORPAY_KEY_SECRET:}
+closiq.razorpay.stub-enabled=false

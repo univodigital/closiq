@@ -19,7 +19,7 @@ interface AuthContextValue {
   isLoading: boolean;
   isAuthenticated: boolean;
   hasRole: (role: UserRole) => boolean;
-  login: (phone: string) => Promise<{ otpSessionId: string }>;
+  login: (identifier: string) => Promise<{ otpSessionId: string }>;
   loginWithPassword: (identifier: string, password: string) => Promise<void>;
   verifyOtp: (otpSessionId: string, otp: string, profile?: RegistrationProfile) => Promise<void>;
   resetPassword: (otpSessionId: string, otp: string, newPassword: string) => Promise<void>;
@@ -84,8 +84,8 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     return () => window.removeEventListener("closiq:session-expired", onSessionExpired);
   }, []);
 
-  const login = useCallback(async (phone: string) => {
-    return authService.login(phone);
+  const login = useCallback(async (identifier: string) => {
+    return authService.login(identifier);
   }, []);
 
   const loginWithPassword = useCallback(

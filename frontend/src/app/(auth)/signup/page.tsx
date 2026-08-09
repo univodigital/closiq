@@ -26,6 +26,7 @@ const schema = z.object({
     .min(3, "At least 3 characters")
     .max(30, "Max 30 characters")
     .regex(/^[a-zA-Z0-9_]+$/, "Letters, numbers, and underscores only"),
+  email: z.string().email("Enter a valid email address"),
   phone: z.string().regex(/^(\+91)?[6-9]\d{9}$/, "Enter valid 10-digit mobile"),
   password: passwordSchema,
   acceptTerms: z.literal(true, { errorMap: () => ({ message: "You must accept the terms" }) }),
@@ -50,6 +51,7 @@ export default function SignupPage() {
       sessionStorage.setItem("otpPhone", phone);
       sessionStorage.setItem("registerUsername", data.username);
       sessionStorage.setItem("registerPassword", data.password);
+      sessionStorage.setItem("registerEmail", data.email.trim().toLowerCase());
       router.push("/signup/verify?mode=register");
     } catch (error) {
       if (error instanceof ApiError && error.status === 409) {
@@ -66,13 +68,23 @@ export default function SignupPage() {
     <Card>
       <CardHeader>
         <CardTitle>Create account</CardTitle>
-        <p className="text-sm text-muted-foreground">Set up your username, mobile, and password</p>
+        <p className="text-sm text-muted-foreground">Set up your username, email, mobile, and password</p>
       </CardHeader>
       <CardContent>
         <form onSubmit={handleSubmit(onSubmit)} className="space-y-4">
           <div>
             <label className="label-caps mb-2 block text-muted-foreground">Username</label>
             <Input {...register("username")} placeholder="your_username" autoComplete="username" error={errors.username?.message} />
+          </div>
+          <div>
+            <label className="label-caps mb-2 block text-muted-foreground">Email</label>
+            <Input
+              {...register("email")}
+              type="email"
+              placeholder="you@example.com"
+              autoComplete="email"
+              error={errors.email?.message}
+            />
           </div>
           <div>
             <label className="label-caps mb-2 block text-muted-foreground">Mobile</label>

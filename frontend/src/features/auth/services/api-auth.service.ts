@@ -66,10 +66,10 @@ export class ApiAuthService implements AuthService {
     return { otpSessionId: data.otpSessionId, expiresInSeconds: data.expiresInSeconds };
   }
 
-  async login(phone: string) {
+  async login(identifier: string) {
     const data = await apiFetch<OtpInitiateResponse>("/auth/login", {
       method: "POST",
-      body: JSON.stringify({ phone }),
+      body: JSON.stringify({ identifier }),
     });
     return { otpSessionId: data.otpSessionId, expiresInSeconds: data.expiresInSeconds };
   }
@@ -101,10 +101,10 @@ export class ApiAuthService implements AuthService {
     storeAuthToken(data);
   }
 
-  async forgotPassword(phone: string) {
+  async forgotPassword(identifier: string) {
     const data = await apiFetch<OtpInitiateResponse>("/auth/forgot-password", {
       method: "POST",
-      body: JSON.stringify({ phone }),
+      body: JSON.stringify({ identifier }),
     });
     return { otpSessionId: data.otpSessionId, expiresInSeconds: data.expiresInSeconds };
   }
