@@ -26,4 +26,6 @@ public class ProductSummaryResponse {
     String audience;
     String garmentType;
     boolean trending;
+    /** Null when listing request has no rental dates; otherwise date-range availability. */
+    Boolean availableForDates;
 }

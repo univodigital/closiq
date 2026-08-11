@@ -2,7 +2,9 @@ package com.closiq.payment.service;
 
 import com.closiq.booking.domain.Booking;
 import com.closiq.booking.domain.BookingStatus;
+import com.closiq.booking.domain.CheckoutBatch;
 import com.closiq.booking.repository.BookingRepository;
+import com.closiq.booking.repository.CheckoutBatchRepository;
 import com.closiq.booking.service.BookingHoldExpiryService;
 import com.closiq.common.exception.ErrorCode;
 import com.closiq.common.exception.ClosiqException;
@@ -24,6 +26,7 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.time.Instant;
+import java.util.List;
 import java.util.UUID;
 
 @Service
@@ -35,6 +38,7 @@ public class PaymentService {
     private final PaymentRepository paymentRepository;
     private final PaymentAttemptRepository paymentAttemptRepository;
     private final BookingRepository bookingRepository;
+    private final CheckoutBatchRepository checkoutBatchRepository;
     private final PaymentGateway paymentGateway;
     private final PaymentConfirmationService confirmationService;
     private final BookingHoldExpiryService holdExpiryService;
@@ -122,6 +126,103 @@ public class PaymentService {
     }
 
     @Transactional
+    public CreateRazorpayOrderResponse createBatchRazorpayOrder(
+            UUID customerId, String idempotencyKey, UUID checkoutBatchId) {
+
+        holdExpiryService.releaseExpiredHolds();
+
+        if (idempotencyKey != null && !idempotencyKey.isBlank()) {
+            var existing = paymentRepository.findByIdempotencyKey(idempotencyKey);
+            if (existing.isPresent()) {
+                return toBatchOrderResponse(existing.get());
+            }
+        }
+
+        CheckoutBatch batch = checkoutBatchRepository.findByIdAndCustomerId(checkoutBatchId, customerId)
+                .orElseThrow(() -> new ClosiqException(ErrorCode.NOT_FOUND, "Checkout batch not found"));
+
+        if (!CheckoutBatch.OPEN.equals(batch.getStatus())) {
+            throw new ClosiqException(ErrorCode.INVALID_STATE_TRANSITION, "Checkout is not open for payment");
+        }
+
+        if (Instant.now().isAfter(batch.getExpiresAt())) {
+            throw new ClosiqException(ErrorCode.BOOKING_CONFLICT, "Checkout hold has expired");
+        }
+
+        List<Booking> bookings = bookingRepository.findByCheckoutBatchIdAndCustomerId(checkoutBatchId, customerId);
+        if (bookings.isEmpty()) {
+            throw new ClosiqException(ErrorCode.NOT_FOUND, "Checkout batch has no bookings");
+        }
+
+        for (Booking booking : bookings) {
+            if (!BookingStatus.PENDING_PAYMENT.equals(booking.getStatus())) {
+                throw new ClosiqException(ErrorCode.INVALID_STATE_TRANSITION, "Booking is not awaiting payment");
+            }
+            if (booking.getDeliveryAddressId() == null) {
+                throw new ClosiqException(ErrorCode.VALIDATION_ERROR, "Delivery address required before payment");
+            }
+        }
+
+        long amountPaise = batch.getTotalAmount() * 100;
+        if (amountPaise < 100) {
+            throw new ClosiqException(ErrorCode.VALIDATION_ERROR, "Minimum payment amount is ₹1");
+        }
+
+        Booking primary = bookings.getFirst();
+        String receipt = "BATCH-" + batch.getId().toString().substring(0, 8);
+
+        RazorpayOrderResult order;
+        try {
+            order = paymentGateway.createOrder(amountPaise, batch.getCurrencyCode(), receipt);
+        } catch (IllegalArgumentException ex) {
+            throw new ClosiqException(ErrorCode.VALIDATION_ERROR, ex.getMessage());
+        } catch (RazorpayApiException ex) {
+            if (ex.getStatusCode() == 401) {
+                throw new ClosiqException(ErrorCode.UNAUTHORIZED, "Razorpay authentication failed");
+            }
+            throw new ClosiqException(ErrorCode.INTERNAL_ERROR, "Razorpay order creation failed");
+        } catch (Exception ex) {
+            throw new ClosiqException(ErrorCode.PAYMENT_PROVIDER_UNAVAILABLE);
+        }
+
+        long rentalSum = bookings.stream().mapToLong(Booking::getRentalAmount).sum();
+        long depositSum = bookings.stream().mapToLong(Booking::getDepositAmount).sum();
+        long discountSum = bookings.stream().mapToLong(Booking::getDiscountAmount).sum();
+
+        UUID paymentId = IdGenerator.uuidV7();
+        Payment payment = Payment.builder()
+                .id(paymentId)
+                .bookingId(primary.getId())
+                .customerId(customerId)
+                .checkoutSessionId(primary.getCheckoutSessionId())
+                .checkoutBatchId(checkoutBatchId)
+                .providerCode(PROVIDER_RAZORPAY)
+                .providerOrderId(order.getProviderOrderId())
+                .amount(amountPaise)
+                .rentalComponent(rentalSum * 100)
+                .depositComponent(depositSum * 100)
+                .discountComponent(discountSum * 100)
+                .currencyCode(batch.getCurrencyCode())
+                .status(PaymentStatus.CREATED)
+                .idempotencyKey(idempotencyKey)
+                .build();
+        paymentRepository.save(payment);
+
+        return CreateRazorpayOrderResponse.builder()
+                .paymentId(paymentId.toString())
+                .razorpayOrderId(order.getProviderOrderId())
+                .amount(order.getAmountPaise())
+                .amountInRupees(batch.getTotalAmount())
+                .currency(batch.getCurrencyCode())
+                .keyId(properties.getRazorpay().getKeyId())
+                .bookingId(primary.getId().toString())
+                .checkoutBatchId(checkoutBatchId.toString())
+                .itemCount(bookings.size())
+                .expiresAt(batch.getExpiresAt())
+                .build();
+    }
+
+    @Transactional
     public VerifyPaymentResponse verifyPayment(UUID customerId, VerifyPaymentRequest request) {
         Payment payment = paymentRepository.findByIdAndCustomerId(UUID.fromString(request.getPaymentId()), customerId)
                 .orElseThrow(() -> new ClosiqException(ErrorCode.NOT_FOUND, "Payment not found"));
@@ -150,12 +251,18 @@ public class PaymentService {
         }
 
         Booking booking = bookingRepository.findById(payment.getBookingId()).orElseThrow();
-        if (booking.getHoldExpiresAt() != null && Instant.now().isAfter(booking.getHoldExpiresAt())) {
+        Instant holdExpiry = payment.getCheckoutBatchId() != null
+                ? checkoutBatchRepository.findById(payment.getCheckoutBatchId())
+                        .map(CheckoutBatch::getExpiresAt)
+                        .orElse(booking.getHoldExpiresAt())
+                : booking.getHoldExpiresAt();
+        if (holdExpiry != null && Instant.now().isAfter(holdExpiry)) {
             throw new ClosiqException(ErrorCode.BOOKING_CONFLICT, "Booking hold expired before payment completed");
         }
 
-        Payment confirmed = confirmationService.confirmPayment(
-                payment, request.getRazorpayPaymentId(), "razorpay");
+        Payment confirmed = payment.getCheckoutBatchId() != null
+                ? confirmationService.confirmBatchPayment(payment, request.getRazorpayPaymentId(), "razorpay")
+                : confirmationService.confirmPayment(payment, request.getRazorpayPaymentId(), "razorpay");
 
         return toVerifyResponse(confirmed);
     }
@@ -168,6 +275,24 @@ public class PaymentService {
                 .errorMessage(message)
                 .attemptedAt(Instant.now())
                 .build());
+    }
+
+    private CreateRazorpayOrderResponse toBatchOrderResponse(Payment payment) {
+        CheckoutBatch batch = checkoutBatchRepository.findById(payment.getCheckoutBatchId()).orElseThrow();
+        List<Booking> bookings = bookingRepository.findByCheckoutBatchIdAndCustomerId(
+                payment.getCheckoutBatchId(), payment.getCustomerId());
+        return CreateRazorpayOrderResponse.builder()
+                .paymentId(payment.getId().toString())
+                .razorpayOrderId(payment.getProviderOrderId())
+                .amount(payment.getAmount())
+                .amountInRupees(payment.getAmount() / 100)
+                .currency(payment.getCurrencyCode())
+                .keyId(properties.getRazorpay().getKeyId())
+                .bookingId(payment.getBookingId().toString())
+                .checkoutBatchId(payment.getCheckoutBatchId().toString())
+                .itemCount(bookings.size())
+                .expiresAt(batch.getExpiresAt())
+                .build();
     }
 
     private CreateRazorpayOrderResponse toOrderResponse(Payment payment) {
@@ -197,6 +322,15 @@ public class PaymentService {
                 .bookingStatus(booking.getStatus())
                 .paidAmount(payment.getAmount() / 100)
                 .currency(payment.getCurrencyCode())
+                .rentalAmount(payment.getRentalComponent() / 100)
+                .depositAmount(payment.getDepositComponent() / 100)
+                .deliveryFee(booking.getDeliveryFee())
+                .discountAmount(payment.getDiscountComponent() / 100)
+                .paymentMethod(payment.getPaymentMethod())
+                .paidAt(payment.getCapturedAt())
+                .checkoutBatchId(payment.getCheckoutBatchId() != null
+                        ? payment.getCheckoutBatchId().toString()
+                        : null)
                 .build();
     }
 }

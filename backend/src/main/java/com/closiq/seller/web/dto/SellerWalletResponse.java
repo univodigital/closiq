@@ -15,6 +15,8 @@ public class SellerWalletResponse {
     long pendingBalance;
     long totalEarned;
     long totalWithdrawn;
+    long minPayoutAmount;
+    boolean payoutProviderConfigured;
     List<WalletTransactionResponse> transactions;
     List<PayoutMethodResponse> payoutMethods;
 }

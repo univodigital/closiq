@@ -17,6 +17,7 @@ import com.closiq.common.exception.ClosiqException;
 import com.closiq.common.web.PageBoundary;
 import com.closiq.common.web.PageTokenCodec;
 import com.closiq.common.web.PagedResult;
+import com.closiq.inventory.service.AvailabilityService;
 import com.closiq.inventory.service.InventoryStockService;
 import com.closiq.user.domain.SellerProfile;
 import com.closiq.user.repository.SellerProfileRepository;
@@ -27,6 +28,7 @@ import org.springframework.data.jpa.domain.Specification;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+import java.time.LocalDate;
 import java.util.Arrays;
 import java.util.HashMap;
 import java.util.List;
@@ -49,6 +51,7 @@ public class ProductCatalogService {
     private final SellerProfileRepository sellerProfileRepository;
     private final ProductMapper productMapper;
     private final InventoryStockService inventoryStockService;
+    private final AvailabilityService availabilityService;
 
     @Transactional(readOnly = true)
     public PagedResult<ProductSummaryResponse> listProducts(
@@ -64,11 +67,34 @@ public class ProductCatalogService {
             String garmentType,
             String sort,
             String pageToken,
-            Integer limit) {
+            Integer limit,
+            LocalDate rentalStartDate,
+            LocalDate rentalEndDate) {
 
         return queryProducts(
                 occasion, categoryId, size, minPrice, maxPrice, city, featured, trending, audience, garmentType,
-                null, sort, pageToken, limit);
+                null, sort, pageToken, limit, rentalStartDate, rentalEndDate);
+    }
+
+    /** @deprecated use overload with rental dates */
+    @Transactional(readOnly = true)
+    public PagedResult<ProductSummaryResponse> listProducts(
+            String occasion,
+            UUID categoryId,
+            String size,
+            Long minPrice,
+            Long maxPrice,
+            String city,
+            Boolean featured,
+            Boolean trending,
+            String audience,
+            String garmentType,
+            String sort,
+            String pageToken,
+            Integer limit) {
+        return listProducts(
+                occasion, categoryId, size, minPrice, maxPrice, city, featured, trending, audience, garmentType,
+                sort, pageToken, limit, null, null);
     }
 
     @Transactional(readOnly = true)
@@ -80,7 +106,9 @@ public class ProductCatalogService {
             Long maxPrice,
             String sort,
             String pageToken,
-            Integer limit) {
+            Integer limit,
+            LocalDate rentalStartDate,
+            LocalDate rentalEndDate) {
 
         if (query == null || query.trim().length() < 2) {
             throw new ClosiqException(ErrorCode.VALIDATION_ERROR, "Search query must be at least 2 characters");
@@ -89,7 +117,7 @@ public class ProductCatalogService {
         long start = System.currentTimeMillis();
         PagedResult<ProductSummaryResponse> page = queryProducts(
                 occasion, null, size, minPrice, maxPrice, null, null, null, null, null, query.trim(), sort,
-                pageToken, limit);
+                pageToken, limit, rentalStartDate, rentalEndDate);
         long tookMs = System.currentTimeMillis() - start;
 
         PageBoundary countBoundary = PageBoundary.now();
@@ -205,7 +233,9 @@ public class ProductCatalogService {
             String query,
             String sort,
             String pageToken,
-            Integer limit) {
+            Integer limit,
+            LocalDate rentalStartDate,
+            LocalDate rentalEndDate) {
 
         int pageSize = normalizeLimit(limit);
         PageBoundary boundary = PageTokenCodec.productBoundary(pageToken);
@@ -222,7 +252,7 @@ public class ProductCatalogService {
 
         boolean hasMore = products.size() > pageSize;
         List<Product> pageItems = hasMore ? products.subList(0, pageSize) : products;
-        List<ProductSummaryResponse> summaries = toSummaries(pageItems);
+        List<ProductSummaryResponse> summaries = toSummaries(pageItems, rentalStartDate, rentalEndDate);
 
         String nextPageToken = hasMore && !pageItems.isEmpty()
                 ? PageTokenCodec.encodeProduct(new PageTokenCodec.ProductPageToken(
@@ -233,9 +263,16 @@ public class ProductCatalogService {
         return PagedResult.of(summaries, pageSize, hasMore, nextPageToken);
     }
 
-    private List<ProductSummaryResponse> toSummaries(List<Product> products) {
+    private List<ProductSummaryResponse> toSummaries(
+            List<Product> products, LocalDate rentalStartDate, LocalDate rentalEndDate) {
         if (products.isEmpty()) {
             return List.of();
+        }
+
+        Map<UUID, Boolean> availabilityByProduct = Map.of();
+        if (rentalStartDate != null && rentalEndDate != null) {
+            availabilityByProduct = availabilityService.areProductsAvailableForDates(
+                    products, rentalStartDate, rentalEndDate);
         }
 
         List<UUID> productIds = products.stream().map(Product::getId).toList();
@@ -258,14 +295,22 @@ public class ProductCatalogService {
 
         Map<UUID, Integer> stockByProduct = inventoryStockService.countAvailableUnitsByProduct(productIds);
 
+        Map<UUID, Boolean> dateAvailability = availabilityByProduct;
         return products.stream()
                 .map(product -> {
                     String designer = productMapper.resolveDesigner(product, brands, sellers);
                     List<String> images = productMapper.resolveImageUrls(product, imagesByProduct);
                     int stock = stockByProduct.getOrDefault(product.getId(), 0);
-                    return productMapper.toSummary(product, designer, images, stock);
+                    Boolean availableForDates = rentalStartDate != null && rentalEndDate != null
+                            ? dateAvailability.getOrDefault(product.getId(), false)
+                            : null;
+                    return productMapper.toSummary(product, designer, images, stock, availableForDates);
                 })
                 .toList();
+    }
+
+    private List<ProductSummaryResponse> toSummaries(List<Product> products) {
+        return toSummaries(products, null, null);
     }
 
     private ProductSpecifications.ProductFilter buildFilter(

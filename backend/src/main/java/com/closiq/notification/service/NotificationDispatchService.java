@@ -8,6 +8,7 @@ import com.closiq.notification.repository.NotificationRepository;
 import com.closiq.user.domain.SellerProfile;
 import com.closiq.user.repository.SellerProfileRepository;
 import lombok.RequiredArgsConstructor;
+import org.springframework.data.domain.PageRequest;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -21,16 +22,23 @@ public class NotificationDispatchService {
 
     private final NotificationRepository notificationRepository;
     private final SellerProfileRepository sellerProfileRepository;
+    private final NotificationDeliveryService notificationDeliveryService;
 
     @Transactional
     public void bookingConfirmed(Booking booking) {
-        send(
+        if (send(
                 booking.getCustomerId(),
                 NotificationType.BOOKING_CONFIRMED,
                 "Booking confirmed",
                 "Your rental " + booking.getRentalNumber() + " is confirmed.",
                 booking,
-                orderDeepLink(booking));
+                orderDeepLink(booking))) {
+            notificationDeliveryService.deliverBookingNotification(
+                    booking.getCustomerId(),
+                    NotificationType.BOOKING_CONFIRMED,
+                    booking,
+                    orderDeepLink(booking));
+        }
 
         if (booking.getSellerProfileId() != null) {
             sellerProfileRepository.findById(booking.getSellerProfileId()).ifPresent(seller ->
@@ -46,13 +54,37 @@ public class NotificationDispatchService {
 
     @Transactional
     public void outForDelivery(Booking booking) {
-        send(
+        if (send(
                 booking.getCustomerId(),
                 NotificationType.OUT_FOR_DELIVERY,
                 "Out for delivery",
                 "Your order is on the way for booking " + booking.getRentalNumber() + ".",
                 booking,
-                orderDeepLink(booking));
+                orderDeepLink(booking))) {
+            notificationDeliveryService.deliverBookingNotification(
+                    booking.getCustomerId(),
+                    NotificationType.OUT_FOR_DELIVERY,
+                    booking,
+                    orderDeepLink(booking));
+        }
+    }
+
+    @Transactional
+    public void returnReminder(Booking booking) {
+        if (send(
+                booking.getCustomerId(),
+                NotificationType.RETURN_REMINDER,
+                "Rental ending soon",
+                "Your rental for " + booking.getRentalNumber() + " ends on "
+                        + booking.getRentalEndDate() + ". Please prepare the item for return.",
+                booking,
+                orderDeepLink(booking))) {
+            notificationDeliveryService.deliverBookingNotification(
+                    booking.getCustomerId(),
+                    NotificationType.RETURN_REMINDER,
+                    booking,
+                    orderDeepLink(booking));
+        }
     }
 
     @Transactional
@@ -62,6 +94,28 @@ public class NotificationDispatchService {
                 NotificationType.TRIAL_READY,
                 "Your trial is ready",
                 "The delivery agent has arrived for booking " + booking.getRentalNumber() + ".",
+                booking,
+                orderDeepLink(booking));
+    }
+
+    @Transactional
+    public void trialAccepted(Booking booking) {
+        send(
+                booking.getCustomerId(),
+                NotificationType.TRIAL_ACCEPTED,
+                "Rental confirmed",
+                "You accepted the outfit — your rental for " + booking.getRentalNumber() + " is now active.",
+                booking,
+                orderDeepLink(booking));
+    }
+
+    @Transactional
+    public void trialRejected(Booking booking) {
+        send(
+                booking.getCustomerId(),
+                NotificationType.TRIAL_REJECTED,
+                "Return initiated",
+                "You rejected the outfit for booking " + booking.getRentalNumber() + ". Return pickup will be scheduled.",
                 booking,
                 orderDeepLink(booking));
     }
@@ -99,7 +153,7 @@ public class NotificationDispatchService {
                 orderDeepLink(booking));
     }
 
-    private void send(
+    private boolean send(
             UUID userId,
             String type,
             String title,
@@ -116,10 +170,10 @@ public class NotificationDispatchService {
         }
         payload.put("status", booking.getStatus());
 
-        persist(userId, type, title, body, payload, deepLink);
+        return persist(userId, type, title, body, payload, deepLink);
     }
 
-    private void send(
+    private boolean send(
             UUID userId,
             String type,
             String title,
@@ -127,16 +181,28 @@ public class NotificationDispatchService {
             Map<String, Object> payload,
             String deepLink) {
 
-        persist(userId, type, title, body, payload, deepLink);
+        return persist(userId, type, title, body, payload, deepLink);
     }
 
-    private void persist(
+    private boolean persist(
             UUID userId,
             String type,
             String title,
             String body,
             Map<String, Object> payload,
             String deepLink) {
+
+        if (payload != null && payload.get("bookingId") != null) {
+            String bookingId = String.valueOf(payload.get("bookingId"));
+            boolean duplicate = notificationRepository
+                    .findByUserIdAndNotificationTypeOrderByCreatedAtDesc(userId, type, PageRequest.of(0, 10))
+                    .stream()
+                    .anyMatch(n -> n.getPayload() != null
+                            && bookingId.equals(String.valueOf(n.getPayload().get("bookingId"))));
+            if (duplicate) {
+                return false;
+            }
+        }
 
         notificationRepository.save(Notification.builder()
                 .id(IdGenerator.uuidV7())
@@ -148,6 +214,7 @@ public class NotificationDispatchService {
                 .deepLink(deepLink)
                 .read(false)
                 .build());
+        return true;
     }
 
     private String orderDeepLink(Booking booking) {

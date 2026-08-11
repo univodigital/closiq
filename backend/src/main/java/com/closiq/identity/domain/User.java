@@ -40,6 +40,9 @@ public class User extends AuditableEntity {
     @Column(length = 255)
     private String email;
 
+    @Column(name = "pending_email", length = 255)
+    private String pendingEmail;
+
     @Column(name = "email_verified", nullable = false)
     private boolean emailVerified;
 

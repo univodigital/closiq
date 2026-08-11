@@ -8,15 +8,18 @@ import com.closiq.identity.service.AuthService;
 import com.closiq.identity.service.AuthSessionResult;
 import com.closiq.identity.service.RefreshTokenService;
 import com.closiq.identity.web.dto.AuthTokenResponse;
+import com.closiq.identity.web.dto.CompleteRegistrationRequest;
 import com.closiq.identity.web.dto.ForgotPasswordRequest;
 import com.closiq.identity.web.dto.LoginRequest;
 import com.closiq.identity.web.dto.OtpInitiateResponse;
 import com.closiq.identity.web.dto.PasswordLoginRequest;
 import com.closiq.identity.web.dto.RefreshTokenResponse;
 import com.closiq.identity.web.dto.RegisterRequest;
+import com.closiq.identity.web.dto.ResendOtpRequest;
 import com.closiq.identity.web.dto.ResetPasswordRequest;
 import com.closiq.identity.web.dto.UserSummaryResponse;
 import com.closiq.identity.web.dto.VerifyOtpRequest;
+import com.closiq.identity.web.dto.VerifyOtpResponse;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import jakarta.servlet.http.Cookie;
@@ -91,18 +94,46 @@ public class AuthController {
 
     @PostMapping("/verify-otp")
     @Operation(summary = "Verify OTP — complete registration or login")
-    public ResponseEntity<ApiResponse<AuthTokenResponse>> verifyOtp(
+    public ResponseEntity<ApiResponse<VerifyOtpResponse>> verifyOtp(
             @Valid @RequestBody VerifyOtpRequest request,
             HttpServletRequest httpRequest,
             HttpServletResponse httpResponse) {
 
-        AuthSessionResult.TokenPair result = authService.verifyOtp(
+        AuthSessionResult.VerifyResult result = authService.verifyOtp(
+                request,
+                httpRequest.getRemoteAddr(),
+                httpRequest.getHeader("User-Agent"));
+
+        if (result.getRawRefreshToken() != null) {
+            writeRefreshCookie(httpResponse, result.getRawRefreshToken());
+        }
+        return ResponseEntity.ok(ApiResponse.ok(result.getResponse(), ClosiqRequestIdFilter.getRequestId(httpRequest)));
+    }
+
+    @PostMapping("/complete-registration")
+    @Operation(summary = "Complete registration after OTP verification")
+    public ResponseEntity<ApiResponse<AuthTokenResponse>> completeRegistration(
+            @Valid @RequestBody CompleteRegistrationRequest request,
+            HttpServletRequest httpRequest,
+            HttpServletResponse httpResponse) {
+
+        AuthSessionResult.TokenPair result = authService.completeRegistration(
                 request,
                 httpRequest.getRemoteAddr(),
                 httpRequest.getHeader("User-Agent"));
 
         writeRefreshCookie(httpResponse, result.getRawRefreshToken());
         return ResponseEntity.ok(ApiResponse.ok(result.getAuth(), ClosiqRequestIdFilter.getRequestId(httpRequest)));
+    }
+
+    @PostMapping("/resend-otp")
+    @Operation(summary = "Resend OTP for an active session")
+    public ResponseEntity<ApiResponse<OtpInitiateResponse>> resendOtp(
+            @Valid @RequestBody ResendOtpRequest request,
+            HttpServletRequest httpRequest) {
+
+        OtpInitiateResponse response = authService.resendOtp(request.getOtpSessionId());
+        return ResponseEntity.ok(ApiResponse.ok(response, ClosiqRequestIdFilter.getRequestId(httpRequest)));
     }
 
     @PostMapping("/logout")

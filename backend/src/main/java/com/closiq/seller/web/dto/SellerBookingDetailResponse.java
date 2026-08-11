@@ -33,6 +33,15 @@ public class SellerBookingDetailResponse {
     String notes;
     String customerNotes;
     List<PrepChecklistItem> prepChecklist;
+    Instant acceptDeadlineAt;
+    boolean acceptanceExpired;
+    boolean canAccept;
+    boolean canReject;
+    boolean canMarkReady;
+    int acceptSlaHours;
+    int refundExpectedBusinessDays;
+    List<RejectReasonOptionResponse> rejectReasons;
+    SellerRejectPreviewResponse rejectPreview;
 
     @Value
     @Builder
@@ -41,6 +50,7 @@ public class SellerBookingDetailResponse {
         long commission;
         long netEarnings;
         long depositHeld;
+        boolean creditedToWallet;
     }
 
     @Value

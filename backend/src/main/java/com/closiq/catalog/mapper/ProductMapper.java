@@ -30,6 +30,15 @@ public class ProductMapper {
 
     public ProductSummaryResponse toSummary(
             Product product, String designer, List<String> imageUrls, int totalAvailableUnits) {
+        return toSummary(product, designer, imageUrls, totalAvailableUnits, null);
+    }
+
+    public ProductSummaryResponse toSummary(
+            Product product,
+            String designer,
+            List<String> imageUrls,
+            int totalAvailableUnits,
+            Boolean availableForDates) {
         return ProductSummaryResponse.builder()
                 .id(product.getId().toString())
                 .slug(product.getSlug())
@@ -48,6 +57,7 @@ public class ProductMapper {
                 .audience(product.getAudience())
                 .garmentType(product.getGarmentType())
                 .trending(product.isTrending())
+                .availableForDates(availableForDates)
                 .build();
     }
 

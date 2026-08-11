@@ -12,7 +12,11 @@ public interface UserRepository extends JpaRepository<User, UUID>, JpaSpecificat
 
     Optional<User> findByPhoneAndDeletedAtIsNull(String phone);
 
+    Optional<User> findFirstByPhone(String phone);
+
     Optional<User> findByEmailIgnoreCaseAndDeletedAtIsNull(String email);
+
+    Optional<User> findFirstByEmailIgnoreCase(String email);
 
     boolean existsByPhoneAndPhoneVerifiedTrueAndDeletedAtIsNull(String phone);
 

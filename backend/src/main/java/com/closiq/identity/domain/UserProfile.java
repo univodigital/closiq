@@ -58,6 +58,9 @@ public class UserProfile {
     @Column(name = "avatar_media_id")
     private UUID avatarMediaId;
 
+    @Column(name = "username_changed_at")
+    private Instant usernameChangedAt;
+
     @Column(columnDefinition = "TEXT")
     private String bio;
 

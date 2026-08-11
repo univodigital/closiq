@@ -54,11 +54,13 @@ public class ProductController {
             @RequestParam(required = false) String sort,
             @RequestParam(required = false) String pageToken,
             @RequestParam(required = false) Integer limit,
+            @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate startDate,
+            @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate endDate,
             HttpServletRequest request) {
 
         PagedResult<ProductSummaryResponse> page = productCatalogService.listProducts(
                 occasion, categoryId, size, minPrice, maxPrice, city, featured, trending, audience, garmentType,
-                sort, pageToken, limit);
+                sort, pageToken, limit, startDate, endDate);
 
         return ResponseEntity.ok(ApiResponse.ok(
                 page.getItems(),
@@ -77,10 +79,12 @@ public class ProductController {
             @RequestParam(required = false) String sort,
             @RequestParam(required = false) String pageToken,
             @RequestParam(required = false) Integer limit,
+            @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate startDate,
+            @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate endDate,
             HttpServletRequest request) {
 
         ProductCatalogService.SearchResult result = productCatalogService.searchProducts(
-                q, occasion, size, minPrice, maxPrice, sort, pageToken, limit);
+                q, occasion, size, minPrice, maxPrice, sort, pageToken, limit, startDate, endDate);
 
         return ResponseEntity.ok(ApiResponse.okWithSearch(
                 result.page().getItems(),

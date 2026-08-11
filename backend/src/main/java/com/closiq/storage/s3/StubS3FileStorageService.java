@@ -3,6 +3,7 @@ package com.closiq.storage.s3;
 import com.closiq.config.ClosiqProperties;
 import com.closiq.storage.FileStorageService;
 import com.closiq.storage.StorageProvider;
+import com.closiq.storage.StoredUploadResult;
 import com.closiq.storage.UploadInstruction;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
@@ -62,6 +63,15 @@ public class StubS3FileStorageService implements FileStorageService {
                 .method("PUT")
                 .headers(Map.of("Content-Type", contentType))
                 .expiresAt(Instant.now().plus(10, ChronoUnit.MINUTES))
+                .build();
+    }
+
+    @Override
+    public StoredUploadResult uploadBytes(String relativePath, String contentType, String filename, byte[] bytes) {
+        String storageKey = buildStorageKey(relativePath);
+        return StoredUploadResult.builder()
+                .storageKey(storageKey)
+                .publicUrl(resolvePublicUrl(storageKey, contentType))
                 .build();
     }
 

@@ -2,12 +2,20 @@ package com.closiq.identity.service;
 
 import com.closiq.identity.web.dto.AuthTokenResponse;
 import com.closiq.identity.web.dto.RefreshTokenResponse;
+import com.closiq.identity.web.dto.VerifyOtpResponse;
 import lombok.Builder;
 import lombok.Value;
 
 public final class AuthSessionResult {
 
     private AuthSessionResult() {
+    }
+
+    @Value
+    @Builder
+    public static class VerifyResult {
+        VerifyOtpResponse response;
+        String rawRefreshToken;
     }
 
     @Value

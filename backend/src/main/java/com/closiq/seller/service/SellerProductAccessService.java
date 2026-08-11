@@ -19,7 +19,7 @@ public class SellerProductAccessService {
 
     @Transactional(readOnly = true)
     public Product requireOwnedProduct(SellerProfile seller, UUID productId) {
-        Product product = productRepository.findByIdAndDeletedAtIsNull(productId)
+        Product product = productRepository.findById(productId)
                 .orElseThrow(() -> new ClosiqException(ErrorCode.NOT_FOUND, "Product not found"));
 
         if (product.getSellerProfileId() == null || !product.getSellerProfileId().equals(seller.getId())) {

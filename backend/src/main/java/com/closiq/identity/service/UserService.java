@@ -42,6 +42,76 @@ public class UserService {
     }
 
     @Transactional(readOnly = true)
+    public User requireLoginEligible(User user) {
+        if (user == null) {
+            throw new com.closiq.common.exception.ClosiqException(
+                    com.closiq.common.exception.ErrorCode.PHONE_NOT_REGISTERED,
+                    com.closiq.common.exception.ErrorCode.PHONE_NOT_REGISTERED.getDefaultDetail());
+        }
+
+        if (user.getDeletedAt() != null || user.getStatus() == UserStatus.DELETED) {
+            throw new com.closiq.common.exception.ClosiqException(
+                    com.closiq.common.exception.ErrorCode.FORBIDDEN,
+                    "This account has been deleted and cannot be used to log in.");
+        }
+
+        if (user.getStatus() == UserStatus.SUSPENDED) {
+            throw new com.closiq.common.exception.ClosiqException(
+                    com.closiq.common.exception.ErrorCode.FORBIDDEN,
+                    "Your account is suspended. Please contact support for assistance.");
+        }
+
+        if (user.getStatus() != UserStatus.ACTIVE) {
+            throw new com.closiq.common.exception.ClosiqException(
+                    com.closiq.common.exception.ErrorCode.FORBIDDEN,
+                    "This account cannot be used to log in.");
+        }
+
+        return user;
+    }
+
+    @Transactional(readOnly = true)
+    public User requireVerifiedUserForLogin(AuthIdentifierResolver.ResolvedIdentifier resolved) {
+        User user = findUserForLoginLookup(resolved)
+                .orElseThrow(() -> new com.closiq.common.exception.ClosiqException(
+                        com.closiq.common.exception.ErrorCode.PHONE_NOT_REGISTERED,
+                        com.closiq.common.exception.ErrorCode.PHONE_NOT_REGISTERED.getDefaultDetail()));
+
+        requireLoginEligible(user);
+
+        if (!user.isPhoneVerified()) {
+            throw new com.closiq.common.exception.ClosiqException(
+                    com.closiq.common.exception.ErrorCode.PHONE_NOT_REGISTERED,
+                    com.closiq.common.exception.ErrorCode.PHONE_NOT_REGISTERED.getDefaultDetail());
+        }
+
+        return user;
+    }
+
+    @Transactional(readOnly = true)
+    public User requireVerifiedUserForLoginByPhone(String phone) {
+        return requireVerifiedUserForLogin(
+                new AuthIdentifierResolver.ResolvedIdentifier(
+                        AuthIdentifierResolver.Type.PHONE, phone, null));
+    }
+
+    private java.util.Optional<User> findUserForLoginLookup(AuthIdentifierResolver.ResolvedIdentifier resolved) {
+        if (resolved.type() == AuthIdentifierResolver.Type.PHONE) {
+            java.util.Optional<User> active = userRepository.findByPhoneAndDeletedAtIsNull(resolved.phone());
+            if (active.isPresent()) {
+                return active;
+            }
+            return userRepository.findFirstByPhone(resolved.phone());
+        }
+
+        java.util.Optional<User> active = userRepository.findByEmailIgnoreCaseAndDeletedAtIsNull(resolved.email());
+        if (active.isPresent()) {
+            return active;
+        }
+        return userRepository.findFirstByEmailIgnoreCase(resolved.email());
+    }
+
+    @Transactional(readOnly = true)
     public UserProfile requireProfile(UUID userId) {
         return userProfileRepository.findByUserId(userId)
                 .orElseThrow(() -> new com.closiq.common.exception.ClosiqException(

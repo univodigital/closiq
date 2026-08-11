@@ -25,6 +25,8 @@ public class ClosiqProperties {
     private Razorpay razorpay = new Razorpay();
     private Shadowfax shadowfax = new Shadowfax();
     private Mail mail = new Mail();
+    private Notification notification = new Notification();
+    private Refund refund = new Refund();
 
     @Getter
     @Setter
@@ -50,6 +52,19 @@ public class ClosiqProperties {
         private int sellerAcceptSlaHours = 24;
         /** Platform commission in basis points (1500 = 15%). */
         private int commissionRateBps = 1500;
+        private Cancellation cancellation = new Cancellation();
+    }
+
+    @Getter
+    @Setter
+    public static class Cancellation {
+        private int refundBusinessDays = 5;
+        private int depositRefundDaysMin = 5;
+        private int depositRefundDaysMax = 7;
+        /** Percent of rental (after discount) refunded when cancelling after dispatch. */
+        private int afterDispatchRentalRefundPercent = 70;
+        /** Security deposit is fully refunded on customer cancellation before trial. */
+        private boolean depositFullyRefundableOnCancel = true;
     }
 
     @Getter
@@ -78,12 +93,32 @@ public class ClosiqProperties {
     @Getter
     @Setter
     public static class Cloudinary {
-        private String cloudName = "oyi2aun5";
-        private String apiKey = "143936174754118";
+        private String cloudName;
+        private String apiKey;
         private String apiSecret;
         /** Root folder in Cloudinary (matches dashboard key name). */
         private String folder = "closiq";
         private boolean stubEnabled = true;
+
+        public String getCloudName() {
+            return trimOrNull(cloudName);
+        }
+
+        public String getApiKey() {
+            return trimOrNull(apiKey);
+        }
+
+        public String getApiSecret() {
+            return trimOrNull(apiSecret);
+        }
+
+        private static String trimOrNull(String value) {
+            if (value == null) {
+                return null;
+            }
+            String trimmed = value.trim();
+            return trimmed.isEmpty() ? null : trimmed;
+        }
     }
 
     @Getter
@@ -126,5 +161,29 @@ public class ClosiqProperties {
         private boolean enabled = false;
         private String from = "noreply@closiq.com";
         private String fromName = "Closiq";
+    }
+
+    @Getter
+    @Setter
+    public static class Notification {
+        /** Public app URL for deep links in emails (defaults to first CORS origin). */
+        private String appBaseUrl;
+        /** SMS provider integration — disabled until a provider is configured. */
+        private boolean smsEnabled = false;
+        /** Push provider integration — disabled until configured. */
+        private boolean pushEnabled = false;
+        /** Hours before rental end date to send return reminder (24 = day before). */
+        private int returnReminderHoursBeforeEnd = 24;
+        /** Scheduler poll interval for return reminders. */
+        private long returnReminderPollMs = 3_600_000L;
+    }
+
+    @Getter
+    @Setter
+    public static class Refund {
+        /** Expected business days for rental/full refunds to reach the customer. */
+        private int rentalExpectedBusinessDays = 5;
+        /** Expected business days for security deposit refunds after return inspection. */
+        private int depositExpectedBusinessDays = 5;
     }
 }

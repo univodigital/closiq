@@ -49,6 +49,9 @@ public class Booking {
     @Column(name = "checkout_session_id")
     private UUID checkoutSessionId;
 
+    @Column(name = "checkout_batch_id")
+    private UUID checkoutBatchId;
+
     @Column(nullable = false, length = 30)
     private String status;
 
@@ -117,6 +120,21 @@ public class Booking {
 
     @Column(name = "seller_accepted_at")
     private Instant sellerAcceptedAt;
+
+    @Column(name = "inspection_damage_deduction", nullable = false)
+    private long inspectionDamageDeduction;
+
+    @Column(name = "inspection_late_fee", nullable = false)
+    private long inspectionLateFee;
+
+    @Column(name = "inspection_cleaning_fee", nullable = false)
+    private long inspectionCleaningFee;
+
+    @Column(name = "inspection_notes", columnDefinition = "TEXT")
+    private String inspectionNotes;
+
+    @Column(name = "inspection_completed_at")
+    private Instant inspectionCompletedAt;
 
     @Column(name = "created_at", nullable = false, updatable = false)
     private Instant createdAt;

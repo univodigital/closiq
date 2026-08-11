@@ -4,18 +4,29 @@ import com.closiq.booking.domain.Booking;
 import com.closiq.booking.domain.BookingItem;
 import com.closiq.booking.domain.BookingStatus;
 import com.closiq.identity.domain.UserProfile;
+import com.closiq.seller.domain.SellerRejectReason;
+import com.closiq.seller.repository.WalletTransactionRepository;
+import com.closiq.seller.service.SellerAcceptanceService;
+import com.closiq.seller.web.dto.RejectReasonOptionResponse;
 import com.closiq.seller.web.dto.SellerBookingDetailResponse;
 import com.closiq.seller.web.dto.SellerBookingListItemResponse;
+import com.closiq.seller.web.dto.SellerRejectPreviewResponse;
 import com.closiq.user.domain.Address;
+import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Component;
 
+import java.time.Instant;
 import java.util.List;
 import java.util.Locale;
 import java.util.Map;
 import java.util.Set;
 
 @Component
+@RequiredArgsConstructor
 public class SellerBookingMapper {
+
+    private final SellerAcceptanceService acceptanceService;
+    private final WalletTransactionRepository walletTransactionRepository;
 
     public SellerBookingListItemResponse toListItem(
             Booking booking,
@@ -23,7 +34,8 @@ public class SellerBookingMapper {
             Address address,
             UserProfile customer,
             boolean showCustomer,
-            double commissionRate) {
+            double commissionRate,
+            int refundExpectedBusinessDays) {
 
         Map<String, Object> snapshot = item.getPriceSnapshot();
         long commission = Math.round(booking.getRentalAmount() * commissionRate);
@@ -33,6 +45,10 @@ public class SellerBookingMapper {
             commission = 0;
             earnings = 0;
         }
+
+        Instant acceptDeadline = acceptanceService.isPendingAcceptance(booking)
+                ? acceptanceService.acceptDeadline(booking)
+                : null;
 
         return SellerBookingListItemResponse.builder()
                 .id(booking.getId().toString())
@@ -55,6 +71,9 @@ public class SellerBookingMapper {
                 .deliveryPincode(address != null ? address.getPincode() : null)
                 .prepBy(booking.getSellerPrepBy())
                 .notes(booking.getSellerNotes())
+                .acceptDeadlineAt(acceptDeadline)
+                .acceptanceExpired(acceptanceService.isAcceptanceExpired(booking))
+                .refundExpectedBusinessDays(refundExpectedBusinessDays)
                 .build();
     }
 
@@ -64,11 +83,20 @@ public class SellerBookingMapper {
             Address address,
             UserProfile customer,
             boolean showCustomer,
-            double commissionRate) {
+            double commissionRate,
+            int refundExpectedBusinessDays) {
 
         Map<String, Object> snapshot = item.getPriceSnapshot();
         long commission = Math.round(booking.getRentalAmount() * commissionRate);
         long net = booking.getRentalAmount() - commission;
+        boolean pendingAcceptance = acceptanceService.isPendingAcceptance(booking);
+        boolean expired = acceptanceService.isAcceptanceExpired(booking);
+        boolean canAccept = pendingAcceptance && !expired;
+        boolean canReject = canAccept;
+        boolean canMarkReady = BookingStatus.SELLER_ACCEPTED.equals(booking.getStatus());
+
+        boolean credited = walletTransactionRepository.existsByReferenceTypeAndReferenceIdAndTxnType(
+                "BOOKING", booking.getId().toString(), "CREDIT_EARNING");
 
         return SellerBookingDetailResponse.builder()
                 .id(booking.getId().toString())
@@ -90,6 +118,7 @@ public class SellerBookingMapper {
                         .commission(commission)
                         .netEarnings(net)
                         .depositHeld(booking.getDepositAmount())
+                        .creditedToWallet(credited)
                         .build())
                 .customer(SellerBookingDetailResponse.CustomerContact.builder()
                         .name(showCustomer ? maskName(customer) : null)
@@ -101,6 +130,40 @@ public class SellerBookingMapper {
                 .notes(booking.getSellerNotes())
                 .customerNotes(booking.getCustomerNotes())
                 .prepChecklist(buildPrepChecklist(booking.getStatus()))
+                .acceptDeadlineAt(pendingAcceptance ? acceptanceService.acceptDeadline(booking) : null)
+                .acceptanceExpired(expired)
+                .canAccept(canAccept)
+                .canReject(canReject)
+                .canMarkReady(canMarkReady)
+                .acceptSlaHours(acceptanceService.acceptSlaHours())
+                .refundExpectedBusinessDays(refundExpectedBusinessDays)
+                .rejectReasons(rejectReasonOptions())
+                .rejectPreview(canReject ? buildRejectPreview(booking, refundExpectedBusinessDays) : null)
+                .build();
+    }
+
+    public SellerRejectPreviewResponse buildRejectPreview(Booking booking, int refundExpectedBusinessDays) {
+        return SellerRejectPreviewResponse.builder()
+                .refundAmount(booking.getTotalAmount())
+                .expectedBusinessDays(refundExpectedBusinessDays)
+                .refundMethod("Original payment method")
+                .currency(booking.getCurrencyCode())
+                .build();
+    }
+
+    private List<RejectReasonOptionResponse> rejectReasonOptions() {
+        return List.of(
+                option(SellerRejectReason.ITEM_UNAVAILABLE, "Item unavailable", false),
+                option(SellerRejectReason.ITEM_DAMAGED, "Item damaged", false),
+                option(SellerRejectReason.UNABLE_TO_PREP, "Unable to prepare in time", false),
+                option(SellerRejectReason.OTHER, "Other", true));
+    }
+
+    private RejectReasonOptionResponse option(String code, String label, boolean requiresComment) {
+        return RejectReasonOptionResponse.builder()
+                .code(code)
+                .label(label)
+                .requiresComment(requiresComment)
                 .build();
     }
 

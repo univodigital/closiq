@@ -17,11 +17,13 @@ import com.closiq.identity.repository.OtpSessionRepository;
 import com.closiq.identity.repository.PasswordResetTokenRepository;
 import com.closiq.identity.repository.UserRepository;
 import com.closiq.identity.web.dto.AuthTokenResponse;
+import com.closiq.identity.web.dto.CompleteRegistrationRequest;
 import com.closiq.identity.web.dto.OtpInitiateResponse;
 import com.closiq.identity.web.dto.ResetPasswordRequest;
 import com.closiq.identity.web.dto.SellerProfileStubResponse;
 import com.closiq.identity.web.dto.UserSummaryResponse;
 import com.closiq.identity.web.dto.VerifyOtpRequest;
+import com.closiq.identity.web.dto.VerifyOtpResponse;
 import com.closiq.notification.email.EmailService;
 import com.closiq.user.domain.SellerProfile;
 import com.closiq.user.repository.SellerProfileRepository;
@@ -55,15 +57,16 @@ public class AuthService {
 
     @Transactional
     public OtpInitiateResponse register(String phone, String email) {
+        String normalizedPhone = normalizePhone(phone);
         String deliveryEmail = email != null && !email.isBlank() ? email.trim().toLowerCase() : null;
-        OtpSession session = otpService.createSession(phone, OtpPurpose.REGISTER, deliveryEmail);
+        OtpSession session = otpService.createSession(normalizedPhone, OtpPurpose.REGISTER, deliveryEmail);
         return buildOtpInitiateResponse(session, false);
     }
 
     @Transactional
     public OtpInitiateResponse login(String identifier) {
         AuthIdentifierResolver.ResolvedIdentifier resolved = AuthIdentifierResolver.resolve(identifier);
-        User user = requireVerifiedUser(resolved);
+        User user = userService.requireVerifiedUserForLogin(resolved);
 
         String deliveryEmail = resolved.type() == AuthIdentifierResolver.Type.EMAIL
                 ? resolved.email()
@@ -90,7 +93,7 @@ public class AuthService {
     @Transactional
     public OtpInitiateResponse forgotPassword(String identifier) {
         AuthIdentifierResolver.ResolvedIdentifier resolved = AuthIdentifierResolver.resolve(identifier);
-        User user = requireVerifiedUser(resolved);
+        User user = userService.requireVerifiedUserForLogin(resolved);
 
         String deliveryEmail = resolved.type() == AuthIdentifierResolver.Type.EMAIL
                 ? resolved.email()
@@ -101,7 +104,7 @@ public class AuthService {
     }
 
     @Transactional
-    public AuthSessionResult.TokenPair verifyOtp(VerifyOtpRequest request, String ipAddress, String userAgent) {
+    public AuthSessionResult.VerifyResult verifyOtp(VerifyOtpRequest request, String ipAddress, String userAgent) {
         OtpPurpose purpose = mapPurpose(request.getPurpose());
         OtpSession session = loadPendingSession(request.getOtpSessionId());
 
@@ -114,21 +117,70 @@ public class AuthService {
         otpSessionRepository.save(session);
 
         Optional<User> existingUser = userRepository.findByPhoneAndDeletedAtIsNull(session.getPhone());
-        boolean isNewUser = purpose == OtpPurpose.REGISTER && existingUser.isEmpty();
 
-        User user = switch (purpose) {
-            case REGISTER -> handleRegisterVerification(session, request, existingUser);
-            case LOGIN -> handleLoginVerification(existingUser);
-            case RESET -> throw new ClosiqException(ErrorCode.VALIDATION_ERROR,
+        if (purpose == OtpPurpose.REGISTER) {
+            if (existingUser.isPresent()) {
+                log.info("Registration OTP verified for existing phone: {}", maskPhone(session.getPhone()));
+                return AuthSessionResult.VerifyResult.builder()
+                        .response(VerifyOtpResponse.builder()
+                                .existingAccount(true)
+                                .phone(session.getPhone())
+                                .build())
+                        .build();
+            }
+
+            if (request.getProfile() == null) {
+                return AuthSessionResult.VerifyResult.builder()
+                        .response(VerifyOtpResponse.builder()
+                                .requiresProfile(true)
+                                .phone(session.getPhone())
+                                .build())
+                        .build();
+            }
+
+            User user = createRegisteredUser(session, request.getProfile());
+            user.setLastLoginAt(Instant.now());
+            userRepository.save(user);
+            log.info("User registered: userId={}", user.getId());
+            return buildVerifyAuthResult(user, true, ipAddress, userAgent);
+        }
+
+        if (purpose == OtpPurpose.RESET) {
+            throw new ClosiqException(ErrorCode.VALIDATION_ERROR,
                     "Use reset-password endpoint after OTP verification for password reset");
-        };
+        }
 
+        User user = handleLoginVerification(session.getPhone(), existingUser);
         user.setLastLoginAt(Instant.now());
         userRepository.save(user);
+        log.info("User authenticated via login OTP: userId={}", user.getId());
+        return buildVerifyAuthResult(user, false, ipAddress, userAgent);
+    }
 
-        log.info("User authenticated: userId={}, purpose={}, isNewUser={}", user.getId(), purpose, isNewUser);
+    @Transactional
+    public AuthSessionResult.TokenPair completeRegistration(
+            CompleteRegistrationRequest request,
+            String ipAddress,
+            String userAgent) {
 
-        return issueTokenPair(user, ipAddress, userAgent, isNewUser);
+        OtpSession session = loadVerifiedRegistrationSession(request.getOtpSessionId());
+        Optional<User> existingUser = userRepository.findByPhoneAndDeletedAtIsNull(session.getPhone());
+        if (existingUser.isPresent()) {
+            throw new ClosiqException(ErrorCode.ALREADY_EXISTS,
+                    "An account with this phone number already exists. Please log in instead.");
+        }
+
+        User user = createRegisteredUser(session, request.getProfile());
+        user.setLastLoginAt(Instant.now());
+        userRepository.save(user);
+        log.info("User registration completed: userId={}", user.getId());
+        return issueTokenPair(user, ipAddress, userAgent, true);
+    }
+
+    @Transactional
+    public OtpInitiateResponse resendOtp(String otpSessionId) {
+        OtpSession session = otpService.resendSession(parseSessionId(otpSessionId));
+        return buildOtpInitiateResponse(session, false);
     }
 
     @Transactional(readOnly = true)
@@ -189,6 +241,7 @@ public class AuthService {
         user.setPasswordHash(hashUtils.hashPassword(request.getNewPassword()));
         userRepository.save(user);
 
+        userService.requireLoginEligible(user);
         return issueTokenPair(user, ipAddress, userAgent, false);
     }
 
@@ -200,7 +253,9 @@ public class AuthService {
 
         token.setUsedAt(Instant.now());
         passwordResetTokenRepository.save(token);
-        return token.getUser();
+        User user = token.getUser();
+        userService.requireLoginEligible(user);
+        return user;
     }
 
     private User resetWithOtp(ResetPasswordRequest request) {
@@ -211,25 +266,14 @@ public class AuthService {
         session.setVerifiedAt(Instant.now());
         otpSessionRepository.save(session);
 
-        return userRepository.findByPhoneAndDeletedAtIsNull(session.getPhone())
-                .orElseThrow(() -> new ClosiqException(ErrorCode.NOT_FOUND, "User not found"));
+        User user = userRepository.findByPhoneAndDeletedAtIsNull(session.getPhone())
+                .orElseGet(() -> userRepository.findFirstByPhone(session.getPhone())
+                        .orElseThrow(() -> new ClosiqException(ErrorCode.NOT_FOUND, "User not found")));
+        userService.requireLoginEligible(user);
+        return user;
     }
 
-    private User handleRegisterVerification(
-            OtpSession session,
-            VerifyOtpRequest request,
-            Optional<User> existingUser) {
-
-        if (existingUser.isPresent()) {
-            return existingUser.get();
-        }
-
-        if (request.getProfile() == null) {
-            throw new ClosiqException(ErrorCode.VALIDATION_ERROR,
-                    "Profile is required for new user registration");
-        }
-
-        var profile = request.getProfile();
+    private User createRegisteredUser(OtpSession session, VerifyOtpRequest.RegistrationProfileRequest profile) {
         if (userService.usernameExists(profile.getUsername())) {
             throw new ClosiqException(ErrorCode.ALREADY_EXISTS, "Username is already taken");
         }
@@ -261,26 +305,83 @@ public class AuthService {
         return user;
     }
 
-    private User requireVerifiedUser(AuthIdentifierResolver.ResolvedIdentifier resolved) {
-        if (resolved.type() == AuthIdentifierResolver.Type.PHONE) {
-            return userRepository.findByPhoneAndDeletedAtIsNull(resolved.phone())
-                    .filter(User::isPhoneVerified)
-                    .orElseThrow(() -> new ClosiqException(
-                            ErrorCode.PHONE_NOT_REGISTERED, ErrorCode.PHONE_NOT_REGISTERED.getDefaultDetail()));
+    private OtpSession loadVerifiedRegistrationSession(String sessionId) {
+        UUID id = parseSessionId(sessionId);
+        OtpSession session = otpSessionRepository.findById(id)
+                .orElseThrow(() -> new ClosiqException(ErrorCode.INVALID_OTP, "Invalid OTP session"));
+
+        if (session.getPurpose() != OtpPurpose.REGISTER) {
+            throw new ClosiqException(ErrorCode.INVALID_OTP, "OTP session purpose mismatch");
         }
 
-        return userRepository.findByEmailIgnoreCaseAndDeletedAtIsNull(resolved.email())
-                .filter(user -> user.getEmail() != null && !user.getEmail().isBlank())
-                .filter(User::isPhoneVerified)
-                .orElseThrow(() -> new ClosiqException(
-                        ErrorCode.PHONE_NOT_REGISTERED, ErrorCode.PHONE_NOT_REGISTERED.getDefaultDetail()));
+        if (session.getStatus() != OtpSessionStatus.VERIFIED) {
+            throw new ClosiqException(ErrorCode.INVALID_OTP, "OTP must be verified before completing registration");
+        }
+
+        if (session.getExpiresAt().isBefore(Instant.now())) {
+            throw new ClosiqException(ErrorCode.INVALID_OTP, "Registration session has expired");
+        }
+
+        return session;
     }
 
-    private User handleLoginVerification(Optional<User> existingUser) {
-        return existingUser
-                .filter(User::isPhoneVerified)
-                .orElseThrow(() -> new ClosiqException(
-                        ErrorCode.PHONE_NOT_REGISTERED, ErrorCode.PHONE_NOT_REGISTERED.getDefaultDetail()));
+    private UUID parseSessionId(String sessionId) {
+        try {
+            return UUID.fromString(sessionId);
+        } catch (IllegalArgumentException ex) {
+            throw new ClosiqException(ErrorCode.INVALID_OTP, "Invalid OTP session");
+        }
+    }
+
+    private String normalizePhone(String phone) {
+        AuthIdentifierResolver.ResolvedIdentifier resolved = AuthIdentifierResolver.resolve(phone);
+        if (resolved.type() != AuthIdentifierResolver.Type.PHONE) {
+            throw new ClosiqException(ErrorCode.VALIDATION_ERROR, "Phone must be a valid Indian mobile number");
+        }
+        return resolved.phone();
+    }
+
+    private String maskPhone(String phone) {
+        if (phone == null || phone.length() < 4) {
+            return "****";
+        }
+        return phone.substring(0, phone.length() - 4) + "****";
+    }
+
+    private AuthSessionResult.VerifyResult buildVerifyAuthResult(
+            User user, boolean isNewUser, String ipAddress, String userAgent) {
+        AuthSessionResult.TokenPair tokens = issueTokenPair(user, ipAddress, userAgent, isNewUser);
+        AuthTokenResponse auth = tokens.getAuth();
+        return AuthSessionResult.VerifyResult.builder()
+                .response(VerifyOtpResponse.builder()
+                        .existingAccount(false)
+                        .requiresProfile(false)
+                        .phone(user.getPhone())
+                        .accessToken(auth.getAccessToken())
+                        .expiresIn(auth.getExpiresIn())
+                        .tokenType(auth.getTokenType())
+                        .user(auth.getUser())
+                        .isNewUser(auth.getIsNewUser())
+                        .build())
+                .rawRefreshToken(tokens.getRawRefreshToken())
+                .build();
+    }
+
+    private User handleLoginVerification(String phone, Optional<User> existingUser) {
+        User user = existingUser.orElseGet(() ->
+                userRepository.findFirstByPhone(phone).orElse(null));
+
+        if (user == null) {
+            throw new ClosiqException(
+                    ErrorCode.PHONE_NOT_REGISTERED, ErrorCode.PHONE_NOT_REGISTERED.getDefaultDetail());
+        }
+
+        if (!user.isPhoneVerified()) {
+            throw new ClosiqException(
+                    ErrorCode.PHONE_NOT_REGISTERED, ErrorCode.PHONE_NOT_REGISTERED.getDefaultDetail());
+        }
+
+        return userService.requireLoginEligible(user);
     }
 
     private OtpSession loadPendingSession(String sessionId) {
@@ -336,17 +437,19 @@ public class AuthService {
     }
 
     private OtpInitiateResponse buildOtpInitiateResponse(OtpSession session, boolean isExistingUser) {
+        int resendAvailableIn = otpService.getResendCooldownRemainingSeconds(session.getId());
         return OtpInitiateResponse.builder()
                 .otpSessionId(session.getId().toString())
                 .phone(session.getPhone())
                 .expiresInSeconds(otpService.getExpirySeconds())
-                .resendAvailableInSeconds(otpService.getResendCooldownSeconds())
+                .resendAvailableInSeconds(resendAvailableIn)
                 .isExistingUser(isExistingUser)
                 .build();
     }
 
     private AuthSessionResult.TokenPair issueTokenPair(
             User user, String ipAddress, String userAgent, boolean isNewUser) {
+        userService.requireLoginEligible(user);
         UserPrincipal principal = userService.buildPrincipal(user);
         String accessToken = jwtService.generateAccessToken(principal);
         RefreshTokenService.IssuedRefreshToken refreshToken =
@@ -368,16 +471,7 @@ public class AuthService {
 
     private User resolveUserForPasswordLogin(String identifier) {
         AuthIdentifierResolver.ResolvedIdentifier resolved = AuthIdentifierResolver.resolve(identifier);
-
-        if (resolved.type() == AuthIdentifierResolver.Type.PHONE) {
-            return userRepository.findByPhoneAndDeletedAtIsNull(resolved.phone())
-                    .filter(User::isPhoneVerified)
-                    .filter(user -> user.getStatus() == com.closiq.identity.domain.UserStatus.ACTIVE)
-                    .orElseThrow(() -> new ClosiqException(
-                            ErrorCode.UNAUTHORIZED, "Invalid phone/email or password"));
-        }
-
-        return userService.findByEmail(resolved.email());
+        return userService.requireVerifiedUserForLogin(resolved);
     }
 
     private OtpPurpose mapPurpose(String purpose) {

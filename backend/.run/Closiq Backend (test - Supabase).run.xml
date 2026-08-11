@@ -1,14 +1,13 @@
 <component name="ProjectRunConfigurationManager">
   <configuration default="false" name="Closiq Backend (test - Supabase)" type="SpringBootApplicationConfigurationType" factoryName="Spring Boot">
     <option name="ACTIVE_PROFILES" value="test" />
-    <envs>
-      <env name="REDIS_HOST" value="localhost" />
-      <env name="REDIS_PORT" value="6379" />
-    </envs>
     <option name="envFilePaths">
-      <option value="$USER_HOME$/Downloads/closiq-backend.env" />
+      <option value="$USER_HOME$/Downloads/closiq-backend (1).env" />
     </option>
     <module name="closiq-backend" />
+    <selectedOptions>
+      <option name="environmentVariables" />
+    </selectedOptions>
     <option name="SPRING_BOOT_MAIN_CLASS" value="com.closiq.ClosiqApplication" />
     <method v="2">
       <option name="Make" enabled="true" />

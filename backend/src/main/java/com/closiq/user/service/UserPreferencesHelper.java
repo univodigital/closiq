@@ -93,16 +93,19 @@ public class UserPreferencesHelper {
             boolean smsEnabled,
             boolean pushEnabled,
             boolean orderUpdates,
+            boolean returnReminders,
             boolean promotions,
             boolean sellerBookingAlerts) {
 
         static NotificationPreferences defaultsWithOverrides(Map<String, Object> overrides) {
-            NotificationPreferences defaults = new NotificationPreferences(true, true, false, true, false, true);
+            NotificationPreferences defaults =
+                    new NotificationPreferences(true, false, false, true, true, false, true);
             return new NotificationPreferences(
                     boolOr(overrides, "emailEnabled", defaults.emailEnabled()),
                     boolOr(overrides, "smsEnabled", defaults.smsEnabled()),
                     boolOr(overrides, "pushEnabled", defaults.pushEnabled()),
                     boolOr(overrides, "orderUpdates", defaults.orderUpdates()),
+                    boolOr(overrides, "returnReminders", defaults.returnReminders()),
                     boolOr(overrides, "promotions", defaults.promotions()),
                     boolOr(overrides, "sellerBookingAlerts", defaults.sellerBookingAlerts()));
         }
@@ -113,6 +116,7 @@ public class UserPreferencesHelper {
             map.put("smsEnabled", smsEnabled);
             map.put("pushEnabled", pushEnabled);
             map.put("orderUpdates", orderUpdates);
+            map.put("returnReminders", returnReminders);
             map.put("promotions", promotions);
             map.put("sellerBookingAlerts", sellerBookingAlerts);
             return map;

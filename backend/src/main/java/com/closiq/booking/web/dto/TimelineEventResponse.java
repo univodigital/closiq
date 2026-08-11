@@ -11,6 +11,7 @@ public class TimelineEventResponse {
 
     String status;
     String label;
+    String description;
     Instant timestamp;
     Boolean completed;
     Boolean current;

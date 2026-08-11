@@ -98,6 +98,61 @@ public class RazorpayPaymentGateway implements PaymentGateway {
         return expected.equalsIgnoreCase(signature);
     }
 
+    @Override
+    public RazorpayRefundResult createRefund(String providerPaymentId, long amountPaise, String idempotencyKey) {
+        if (amountPaise < MIN_AMOUNT_PAISE) {
+            throw new IllegalArgumentException("Refund amount must be at least 100 paise");
+        }
+        if (providerPaymentId == null || providerPaymentId.isBlank()) {
+            throw new IllegalArgumentException("Provider payment id is required");
+        }
+
+        try {
+            URI uri = URI.create("https://api.razorpay.com/v1/payments/" + providerPaymentId + "/refund");
+            var bodyMap = new java.util.LinkedHashMap<String, Object>();
+            bodyMap.put("amount", amountPaise);
+            if (idempotencyKey != null && !idempotencyKey.isBlank()) {
+                bodyMap.put("receipt", idempotencyKey.length() > RECEIPT_MAX_LENGTH
+                        ? idempotencyKey.substring(0, RECEIPT_MAX_LENGTH)
+                        : idempotencyKey);
+            }
+            String body = objectMapper.writeValueAsString(bodyMap);
+
+            HttpRequest request = HttpRequest.newBuilder(uri)
+                    .timeout(Duration.ofSeconds(15))
+                    .header("Authorization", basicAuthHeader())
+                    .header("Content-Type", "application/json")
+                    .POST(HttpRequest.BodyPublishers.ofString(body))
+                    .build();
+
+            HttpResponse<String> response = httpClient.send(request, HttpResponse.BodyHandlers.ofString());
+
+            if (response.statusCode() == 401) {
+                throw new RazorpayApiException(401, "Razorpay authentication failed");
+            }
+            if (response.statusCode() < 200 || response.statusCode() >= 300) {
+                log.warn("Razorpay refund failed: status={} body={}", response.statusCode(), response.body());
+                throw new RazorpayApiException(response.statusCode(), "Razorpay refund failed");
+            }
+
+            JsonNode json = objectMapper.readTree(response.body());
+            String refundId = json.path("id").asText(null);
+            long amount = json.path("amount").asLong(amountPaise);
+            String status = json.path("status").asText("processed");
+
+            return RazorpayRefundResult.builder()
+                    .providerRefundId(refundId)
+                    .amountPaise(amount)
+                    .status(status)
+                    .build();
+        } catch (RazorpayApiException ex) {
+            throw ex;
+        } catch (Exception ex) {
+            log.error("Razorpay refund error", ex);
+            throw new RazorpayApiException(500, "Unable to reach Razorpay");
+        }
+    }
+
     private String basicAuthHeader() {
         String keyId = properties.getRazorpay().getKeyId();
         String keySecret = properties.getRazorpay().getKeySecret();

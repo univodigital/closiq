@@ -6,6 +6,7 @@ import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
 
 import java.time.LocalDate;
+import java.util.Collection;
 import java.util.List;
 import java.util.Optional;
 import java.util.UUID;
@@ -21,6 +22,18 @@ public interface InventoryBlockRepository extends JpaRepository<InventoryBlock, 
             """)
     List<InventoryBlock> findActiveForVariantInRange(
             @Param("variantId") UUID variantId,
+            @Param("rangeStart") LocalDate rangeStart,
+            @Param("rangeEnd") LocalDate rangeEnd);
+
+    @Query("""
+            SELECT b FROM InventoryBlock b
+            WHERE b.productVariant.id IN :variantIds
+            AND b.status = 'ACTIVE'
+            AND b.endDate >= :rangeStart
+            AND b.startDate <= :rangeEnd
+            """)
+    List<InventoryBlock> findActiveForVariantsInRange(
+            @Param("variantIds") Collection<UUID> variantIds,
             @Param("rangeStart") LocalDate rangeStart,
             @Param("rangeEnd") LocalDate rangeEnd);
 

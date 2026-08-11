@@ -23,6 +23,20 @@ import com.closiq.user.web.dto.UserProfileResponse;
 import com.closiq.user.web.dto.WishlistItemResponse;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.tags.Tag;
+import com.closiq.identity.service.RefreshTokenService;
+import com.closiq.seller.web.dto.PresignedUploadResponse;
+import com.closiq.user.service.AccountSecurityService;
+import com.closiq.user.service.UserAvatarService;
+import com.closiq.identity.web.dto.OtpInitiateResponse;
+import com.closiq.user.web.dto.AvatarUploadUrlRequest;
+import com.closiq.user.web.dto.ChangePasswordRequest;
+import com.closiq.user.web.dto.ChangeUsernameRequest;
+import com.closiq.user.web.dto.ConfirmAvatarRequest;
+import com.closiq.user.web.dto.DeleteAccountPreviewResponse;
+import com.closiq.user.web.dto.NewPhoneOtpRequest;
+import com.closiq.user.web.dto.RequestEmailChangeRequest;
+import com.closiq.user.web.dto.VerifyPhoneChangeOtpRequest;
+import jakarta.servlet.http.Cookie;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
@@ -40,6 +54,7 @@ import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
 
 import java.util.List;
+import java.util.Map;
 import java.util.UUID;
 
 @RestController
@@ -53,6 +68,150 @@ public class UserController {
     private final WishlistService wishlistService;
     private final UserSettingsService userSettingsService;
     private final UserAccountService userAccountService;
+    private final AccountSecurityService accountSecurityService;
+    private final UserAvatarService userAvatarService;
+
+    @GetMapping("/delete-preview")
+    @Operation(summary = "Preview account deletion impact")
+    public ResponseEntity<ApiResponse<DeleteAccountPreviewResponse>> deletePreview(
+            @AuthenticationPrincipal UserPrincipal principal,
+            HttpServletRequest request) {
+        return ResponseEntity.ok(ApiResponse.ok(
+                userAccountService.previewDeleteAccount(principal.userId()),
+                ClosiqRequestIdFilter.getRequestId(request)));
+    }
+
+    @PostMapping("/phone-change/initiate")
+    @Operation(summary = "Send OTP to current phone to start phone change")
+    public ResponseEntity<ApiResponse<OtpInitiateResponse>> initiatePhoneChange(
+            @AuthenticationPrincipal UserPrincipal principal,
+            HttpServletRequest request) {
+        return ResponseEntity.ok(ApiResponse.ok(
+                accountSecurityService.initiatePhoneChange(principal.userId()),
+                ClosiqRequestIdFilter.getRequestId(request)));
+    }
+
+    @PostMapping("/phone-change/verify-old")
+    @Operation(summary = "Verify OTP for current phone")
+    public ResponseEntity<ApiResponse<Map<String, Boolean>>> verifyOldPhone(
+            @AuthenticationPrincipal UserPrincipal principal,
+            @Valid @RequestBody VerifyPhoneChangeOtpRequest body,
+            HttpServletRequest request) {
+        accountSecurityService.verifyOldPhone(principal.userId(), body.getOtpSessionId(), body.getOtp());
+        return ResponseEntity.ok(ApiResponse.ok(Map.of("verified", true), ClosiqRequestIdFilter.getRequestId(request)));
+    }
+
+    @PostMapping("/phone-change/send-new")
+    @Operation(summary = "Send OTP to new phone number")
+    public ResponseEntity<ApiResponse<OtpInitiateResponse>> sendNewPhoneOtp(
+            @AuthenticationPrincipal UserPrincipal principal,
+            @Valid @RequestBody NewPhoneOtpRequest body,
+            HttpServletRequest request) {
+        return ResponseEntity.ok(ApiResponse.ok(
+                accountSecurityService.sendNewPhoneOtp(principal.userId(), body.getNewPhone()),
+                ClosiqRequestIdFilter.getRequestId(request)));
+    }
+
+    @PostMapping("/phone-change/complete")
+    @Operation(summary = "Verify new phone OTP and update phone number")
+    public ResponseEntity<ApiResponse<Map<String, Boolean>>> completePhoneChange(
+            @AuthenticationPrincipal UserPrincipal principal,
+            @Valid @RequestBody VerifyPhoneChangeOtpRequest body,
+            HttpServletRequest request) {
+        accountSecurityService.completePhoneChange(principal.userId(), body.getOtpSessionId(), body.getOtp());
+        return ResponseEntity.ok(ApiResponse.ok(Map.of("updated", true), ClosiqRequestIdFilter.getRequestId(request)));
+    }
+
+    @PostMapping("/email-change/request")
+    @Operation(summary = "Request email change and send verification OTP")
+    public ResponseEntity<ApiResponse<OtpInitiateResponse>> requestEmailChange(
+            @AuthenticationPrincipal UserPrincipal principal,
+            @Valid @RequestBody RequestEmailChangeRequest body,
+            HttpServletRequest request) {
+        return ResponseEntity.ok(ApiResponse.ok(
+                accountSecurityService.requestEmailChange(principal.userId(), body.getNewEmail()),
+                ClosiqRequestIdFilter.getRequestId(request)));
+    }
+
+    @PostMapping("/email-change/verify")
+    @Operation(summary = "Verify email change OTP")
+    public ResponseEntity<ApiResponse<Map<String, Boolean>>> verifyEmailChange(
+            @AuthenticationPrincipal UserPrincipal principal,
+            @Valid @RequestBody VerifyPhoneChangeOtpRequest body,
+            HttpServletRequest request) {
+        accountSecurityService.verifyEmailChange(principal.userId(), body.getOtpSessionId(), body.getOtp());
+        return ResponseEntity.ok(ApiResponse.ok(Map.of("verified", true), ClosiqRequestIdFilter.getRequestId(request)));
+    }
+
+    @PostMapping("/password")
+    @Operation(summary = "Change password and sign out other devices")
+    public ResponseEntity<ApiResponse<Map<String, Boolean>>> changePassword(
+            @AuthenticationPrincipal UserPrincipal principal,
+            @Valid @RequestBody ChangePasswordRequest body,
+            HttpServletRequest httpRequest) {
+        if (!body.getNewPassword().equals(body.getConfirmPassword())) {
+            throw new com.closiq.common.exception.ClosiqException(
+                    com.closiq.common.exception.ErrorCode.VALIDATION_ERROR, "Passwords do not match");
+        }
+        accountSecurityService.changePassword(
+                principal.userId(),
+                body.getCurrentPassword(),
+                body.getNewPassword(),
+                extractRefreshToken(httpRequest));
+        return ResponseEntity.ok(ApiResponse.ok(Map.of("updated", true), ClosiqRequestIdFilter.getRequestId(httpRequest)));
+    }
+
+    @PostMapping("/username")
+    @Operation(summary = "Change username once")
+    public ResponseEntity<ApiResponse<Map<String, Boolean>>> changeUsername(
+            @AuthenticationPrincipal UserPrincipal principal,
+            @Valid @RequestBody ChangeUsernameRequest body,
+            HttpServletRequest request) {
+        accountSecurityService.changeUsername(principal.userId(), body.getUsername());
+        return ResponseEntity.ok(ApiResponse.ok(Map.of("updated", true), ClosiqRequestIdFilter.getRequestId(request)));
+    }
+
+    @PostMapping("/avatar/upload-url")
+    @Operation(summary = "Create presigned avatar upload URL")
+    public ResponseEntity<ApiResponse<PresignedUploadResponse>> avatarUploadUrl(
+            @AuthenticationPrincipal UserPrincipal principal,
+            @Valid @RequestBody AvatarUploadUrlRequest body,
+            HttpServletRequest request) {
+        return ResponseEntity.ok(ApiResponse.ok(
+                userAvatarService.createUploadUrl(
+                        principal.userId(), body.getFileName(), body.getContentType(), body.getFileSize()),
+                ClosiqRequestIdFilter.getRequestId(request)));
+    }
+
+    @PostMapping("/avatar/confirm")
+    @Operation(summary = "Confirm avatar upload")
+    public ResponseEntity<ApiResponse<Map<String, String>>> confirmAvatar(
+            @AuthenticationPrincipal UserPrincipal principal,
+            @Valid @RequestBody ConfirmAvatarRequest body,
+            HttpServletRequest request) {
+        String url = userAvatarService.confirmAvatar(
+                principal.userId(), UUID.fromString(body.getUploadId()));
+        return ResponseEntity.ok(ApiResponse.ok(Map.of("avatarUrl", url), ClosiqRequestIdFilter.getRequestId(request)));
+    }
+
+    @DeleteMapping("/avatar")
+    @Operation(summary = "Remove avatar")
+    public ResponseEntity<Void> removeAvatar(@AuthenticationPrincipal UserPrincipal principal) {
+        userAvatarService.removeAvatar(principal.userId());
+        return ResponseEntity.noContent().build();
+    }
+
+    private String extractRefreshToken(HttpServletRequest request) {
+        if (request.getCookies() == null) {
+            return null;
+        }
+        for (Cookie cookie : request.getCookies()) {
+            if (RefreshTokenService.REFRESH_COOKIE_NAME.equals(cookie.getName())) {
+                return cookie.getValue();
+            }
+        }
+        return null;
+    }
 
     @GetMapping
     @Operation(summary = "Get full user profile including preferences")

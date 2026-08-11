@@ -9,6 +9,7 @@ public class UpdateNotificationPreferencesRequest {
     Boolean smsEnabled;
     Boolean pushEnabled;
     Boolean orderUpdates;
+    Boolean returnReminders;
     Boolean promotions;
     Boolean sellerBookingAlerts;
 }

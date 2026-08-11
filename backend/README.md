@@ -64,6 +64,14 @@ Swagger UI: `http://localhost:8080/swagger-ui.html`
 | `RAZORPAY_STUB_ENABLED` | `true` | Use stub payment gateway |
 | `SHADOWFAX_WEBHOOK_SECRET` | (stub default) | Shadowfax webhook HMAC secret |
 | `SHADOWFAX_STUB_ENABLED` | `true` | Use stub logistics gateway |
+| `CLOUDINARY_CLOUD_NAME` | (empty) | Cloudinary cloud name — required when `CLOUDINARY_STUB_ENABLED=false` |
+| `CLOUDINARY_API_KEY` | (empty) | Cloudinary API key — must match the same account as the secret |
+| `CLOUDINARY_API_SECRET` | (empty) | Cloudinary API secret — never commit; pair with `CLOUDINARY_API_KEY` |
+| `CLOUDINARY_URL` | (empty) | Alternative: `cloudinary://api_key:api_secret@cloud_name` (used when individual vars are unset) |
+| `CLOUDINARY_FOLDER` | `closiq` | Root folder for uploaded media |
+| `CLOUDINARY_STUB_ENABLED` | `true` | Skip real Cloudinary uploads in local dev |
+
+`CLOSIQ_CLOUDINARY_*` env vars are also accepted (same meaning as above). When using IntelliJ/env files **and** `application-test.properties`, env vars **override** the properties file — ensure the secret matches exactly (including leading `-` if present in the dashboard).
 
 ## Auth Module (`/api/v1/auth`)
 
@@ -252,7 +260,8 @@ Notifications are emitted on booking confirm, shipment status changes, return sc
 | PATCH | `/seller/products/{productId}` | SELLER | Update listing fields |
 | DELETE | `/seller/products/{productId}` | SELLER | Archive listing (soft delete) |
 | POST | `/seller/products/{productId}/publish` | SELLER | Publish draft → `ACTIVE` (requires ≥1 image) |
-| POST | `/seller/products/{productId}/images/upload-url` | SELLER | Presigned product image upload |
+| POST | `/seller/products/{productId}/images/upload` | SELLER | Upload product image (multipart, via backend) |
+| POST | `/seller/products/{productId}/images/upload-url` | SELLER | Presigned product image upload (legacy) |
 | POST | `/seller/products/{productId}/images` | SELLER | Confirm and attach image |
 | DELETE | `/seller/products/{productId}/images/{imageId}` | SELLER | Remove image |
 | GET/PATCH | `/seller/products/{productId}/inventory` | SELLER | Stock levels (Inventory module) |

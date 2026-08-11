@@ -112,4 +112,43 @@ class AvailabilityServiceTest {
         assertThat(response.getBookedRanges()).hasSize(1);
         assertThat(response.getBookedRanges().getFirst().getReason()).isEqualTo("BOOKED");
     }
+
+    @Test
+    void areProductsAvailableForDates_returnsUnavailableWhenBooked() {
+        Product product = Product.builder()
+                .id(PRODUCT_ID)
+                .cleaningBufferDays((short) 0)
+                .status("ACTIVE")
+                .build();
+        ProductVariant variant = ProductVariant.builder().id(VARIANT_ID).product(product).build();
+        InventoryItem item = InventoryItem.builder()
+                .id(ITEM_ID)
+                .productVariant(variant)
+                .status(InventoryItemStatus.AVAILABLE)
+                .build();
+        InventoryReservation reservation = InventoryReservation.builder()
+                .inventoryItem(item)
+                .startDate(LocalDate.of(2026, 8, 20))
+                .endDate(LocalDate.of(2026, 8, 22))
+                .reservationType("CONFIRMED")
+                .status("ACTIVE")
+                .build();
+
+        when(productVariantRepository.findByProductIdInAndStatusOrderBySortOrderAsc(
+                eq(List.of(PRODUCT_ID)), eq("ACTIVE")))
+                .thenReturn(List.of(variant));
+        when(inventoryItemRepository.findRentableByVariantIds(eq(List.of(VARIANT_ID)), eq("RETIRED")))
+                .thenReturn(List.of(item));
+        when(reservationRepository.findActiveForVariantsInRange(eq(List.of(VARIANT_ID)), any(), any()))
+                .thenReturn(List.of(reservation));
+        when(blockRepository.findActiveForVariantsInRange(eq(List.of(VARIANT_ID)), any(), any()))
+                .thenReturn(List.of());
+
+        var result = availabilityService.areProductsAvailableForDates(
+                List.of(product),
+                LocalDate.of(2026, 8, 20),
+                LocalDate.of(2026, 8, 22));
+
+        assertThat(result.get(PRODUCT_ID)).isFalse();
+    }
 }

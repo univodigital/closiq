@@ -43,6 +43,9 @@ public abstract class UserProfileMapper {
     @Mapping(target = "email", source = "user.email")
     @Mapping(target = "emailVerified", source = "user.emailVerified")
     @Mapping(target = "alternateEmail", source = "user.alternateEmail")
+    @Mapping(target = "username", source = "profile.username")
+    @Mapping(target = "usernameChangeAllowed", expression = "java(profile.getUsernameChangedAt() == null)")
+    @Mapping(target = "pendingEmail", source = "user.pendingEmail")
     @Mapping(target = "roles", source = "roles")
     @Mapping(target = "createdAt", source = "user.createdAt")
     @Mapping(target = "avatarUrl", expression = "java(preferencesHelper.getAvatarUrl(profile.getPreferences()))")
@@ -115,6 +118,7 @@ public abstract class UserProfileMapper {
                 .smsEnabled(notif.smsEnabled())
                 .pushEnabled(notif.pushEnabled())
                 .orderUpdates(notif.orderUpdates())
+                .returnReminders(notif.returnReminders())
                 .promotions(notif.promotions())
                 .sellerBookingAlerts(notif.sellerBookingAlerts())
                 .build();

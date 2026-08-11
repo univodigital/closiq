@@ -31,6 +31,9 @@ public interface FileStorageService {
     /** Creates client-side upload instructions for a direct upload. */
     UploadInstruction createUploadInstruction(String relativePath, String contentType);
 
+    /** Uploads bytes from the server using provider credentials (preferred for browser uploads). */
+    StoredUploadResult uploadBytes(String relativePath, String contentType, String filename, byte[] bytes);
+
     /** Deletes the object at {@code storageKey}. Authorization must happen before calling this. */
     void delete(String storageKey);
 }

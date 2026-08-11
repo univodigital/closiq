@@ -23,8 +23,11 @@ public class UserProfileResponse {
     String firstName;
     String lastName;
     Gender gender;
+    String username;
+    boolean usernameChangeAllowed;
     String displayName;
     String avatarUrl;
+    String pendingEmail;
     List<String> roles;
     Instant createdAt;
     UserPreferencesResponse preferences;

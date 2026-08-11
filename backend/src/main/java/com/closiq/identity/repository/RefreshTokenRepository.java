@@ -39,4 +39,17 @@ public interface RefreshTokenRepository extends JpaRepository<RefreshToken, UUID
             @Param("activeStatus") RefreshTokenStatus activeStatus,
             @Param("revokedStatus") RefreshTokenStatus revokedStatus,
             @Param("now") Instant now);
+
+    @Modifying
+    @Transactional
+    @Query("""
+            UPDATE RefreshToken rt SET rt.status = :revokedStatus, rt.revokedAt = :now
+            WHERE rt.user.id = :userId AND rt.status = :activeStatus AND rt.familyId <> :keepFamilyId
+            """)
+    int revokeAllExceptFamily(
+            @Param("userId") UUID userId,
+            @Param("keepFamilyId") UUID keepFamilyId,
+            @Param("activeStatus") RefreshTokenStatus activeStatus,
+            @Param("revokedStatus") RefreshTokenStatus revokedStatus,
+            @Param("now") Instant now);
 }

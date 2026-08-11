@@ -3,6 +3,7 @@ package com.closiq.catalog.repository;
 import com.closiq.catalog.domain.ProductVariant;
 import org.springframework.data.jpa.repository.JpaRepository;
 
+import java.util.Collection;
 import java.util.List;
 import java.util.Optional;
 import java.util.UUID;
@@ -12,4 +13,6 @@ public interface ProductVariantRepository extends JpaRepository<ProductVariant, 
     List<ProductVariant> findByProductIdOrderBySortOrderAsc(UUID productId);
 
     Optional<ProductVariant> findByIdAndProductId(UUID id, UUID productId);
+
+    List<ProductVariant> findByProductIdInAndStatusOrderBySortOrderAsc(Collection<UUID> productIds, String status);
 }

@@ -7,6 +7,7 @@ import com.closiq.common.web.PagedResult;
 import com.closiq.common.web.ClosiqRequestIdFilter;
 import com.closiq.payment.service.PaymentQueryService;
 import com.closiq.payment.service.PaymentService;
+import com.closiq.payment.web.dto.CreateBatchRazorpayOrderRequest;
 import com.closiq.payment.web.dto.CreateRazorpayOrderRequest;
 import com.closiq.payment.web.dto.CreateRazorpayOrderResponse;
 import com.closiq.payment.web.dto.PaymentSummaryResponse;
@@ -52,6 +53,21 @@ public class PaymentController {
 
         CreateRazorpayOrderResponse response = paymentService.createRazorpayOrder(
                 principal.userId(), idempotencyKey, body.getBookingId(), body.getCheckoutSessionId());
+
+        return ResponseEntity.status(HttpStatus.CREATED).body(ApiResponse.ok(
+                response,                 ClosiqRequestIdFilter.getRequestId(request)));
+    }
+
+    @PostMapping("/razorpay/orders/batch")
+    @Operation(summary = "Create single Razorpay order for multi-item checkout batch")
+    public ResponseEntity<ApiResponse<CreateRazorpayOrderResponse>> createBatchOrder(
+            @AuthenticationPrincipal UserPrincipal principal,
+            @RequestHeader("Idempotency-Key") String idempotencyKey,
+            @Valid @RequestBody CreateBatchRazorpayOrderRequest body,
+            HttpServletRequest request) {
+
+        CreateRazorpayOrderResponse response = paymentService.createBatchRazorpayOrder(
+                principal.userId(), idempotencyKey, body.getCheckoutBatchId());
 
         return ResponseEntity.status(HttpStatus.CREATED).body(ApiResponse.ok(
                 response, ClosiqRequestIdFilter.getRequestId(request)));

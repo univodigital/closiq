@@ -3,6 +3,8 @@ package com.closiq.payment.web.dto;
 import lombok.Builder;
 import lombok.Value;
 
+import java.time.Instant;
+
 @Value
 @Builder
 public class VerifyPaymentResponse {
@@ -17,4 +19,11 @@ public class VerifyPaymentResponse {
     String bookingStatus;
     long paidAmount;
     String currency;
+    long rentalAmount;
+    long depositAmount;
+    long deliveryFee;
+    long discountAmount;
+    String paymentMethod;
+    Instant paidAt;
+    String checkoutBatchId;
 }

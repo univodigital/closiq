@@ -11,6 +11,10 @@ public class NotificationPreferencesResponse {
     boolean smsEnabled;
     boolean pushEnabled;
     boolean orderUpdates;
+    boolean returnReminders;
     boolean promotions;
     boolean sellerBookingAlerts;
+    boolean emailAvailable;
+    boolean smsAvailable;
+    boolean pushAvailable;
 }

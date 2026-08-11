@@ -3,11 +3,15 @@ package com.closiq.payment.web;
 import com.closiq.common.security.UserPrincipal;
 import com.closiq.common.web.ApiResponse;
 import com.closiq.common.web.ClosiqRequestIdFilter;
+import com.closiq.booking.service.CheckoutBatchService;
 import com.closiq.payment.service.CheckoutService;
+import com.closiq.payment.web.dto.CheckoutCalculateBatchRequest;
 import com.closiq.payment.web.dto.CheckoutCalculateRequest;
 import com.closiq.payment.web.dto.CheckoutCalculateResponse;
 import com.closiq.payment.web.dto.CheckoutSessionResponse;
 import com.closiq.payment.web.dto.InitiateCheckoutSessionRequest;
+import com.closiq.payment.web.dto.PrepareCheckoutBatchRequest;
+import com.closiq.payment.web.dto.PrepareCheckoutBatchResponse;
 import com.closiq.payment.web.dto.ValidateCouponRequest;
 import com.closiq.payment.web.dto.ValidateCouponResponse;
 import io.swagger.v3.oas.annotations.Operation;
@@ -34,6 +38,7 @@ import java.util.UUID;
 public class CheckoutController {
 
     private final CheckoutService checkoutService;
+    private final CheckoutBatchService checkoutBatchService;
 
     @PostMapping("/calculate")
     @Operation(summary = "Calculate rental pricing without creating a booking")
@@ -43,6 +48,30 @@ public class CheckoutController {
 
         return ResponseEntity.ok(ApiResponse.ok(
                 checkoutService.calculate(body),
+                ClosiqRequestIdFilter.getRequestId(request)));
+    }
+
+    @PostMapping("/calculate-batch")
+    @Operation(summary = "Calculate combined pricing for multiple bag items")
+    public ResponseEntity<ApiResponse<CheckoutCalculateResponse>> calculateBatch(
+            @Valid @RequestBody CheckoutCalculateBatchRequest body,
+            HttpServletRequest request) {
+
+        return ResponseEntity.ok(ApiResponse.ok(
+                checkoutService.calculateBatch(body),
+                ClosiqRequestIdFilter.getRequestId(request)));
+    }
+
+    @PostMapping("/batch/prepare")
+    @Operation(summary = "Create holds for all bag items and prepare combined checkout")
+    public ResponseEntity<ApiResponse<PrepareCheckoutBatchResponse>> prepareBatch(
+            @AuthenticationPrincipal UserPrincipal principal,
+            @RequestHeader("Idempotency-Key") String idempotencyKey,
+            @Valid @RequestBody PrepareCheckoutBatchRequest body,
+            HttpServletRequest request) {
+
+        return ResponseEntity.ok(ApiResponse.ok(
+                checkoutBatchService.prepare(principal.userId(), idempotencyKey, body),
                 ClosiqRequestIdFilter.getRequestId(request)));
     }
 

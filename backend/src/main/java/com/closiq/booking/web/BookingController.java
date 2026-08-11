@@ -5,22 +5,27 @@ import com.closiq.booking.service.BookingService;
 import com.closiq.booking.web.dto.BookingDetailResponse;
 import com.closiq.booking.web.dto.BookingSummaryResponse;
 import com.closiq.booking.web.dto.CancelBookingRequest;
+import com.closiq.booking.web.dto.CancelPreviewResponse;
 import com.closiq.booking.web.dto.CreateBookingRequest;
 import com.closiq.booking.web.dto.CreateBookingResponse;
 import com.closiq.booking.web.dto.ReturnRequestRequest;
+import com.closiq.booking.web.dto.ReturnScheduleResponse;
 import com.closiq.booking.web.dto.TimelineEventResponse;
+import com.closiq.booking.web.dto.TrialRejectPreviewResponse;
 import com.closiq.booking.web.dto.TrialRejectRequest;
 import com.closiq.common.security.UserPrincipal;
 import com.closiq.common.web.ApiResponse;
+import com.closiq.common.web.ClosiqRequestIdFilter;
 import com.closiq.common.web.PageTokenCodec;
 import com.closiq.common.web.PagedResult;
-import com.closiq.common.web.ClosiqRequestIdFilter;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
+import org.springframework.http.HttpHeaders;
 import org.springframework.http.HttpStatus;
+import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.web.bind.annotation.GetMapping;
@@ -87,6 +92,30 @@ public class BookingController {
                 ClosiqRequestIdFilter.getRequestId(request)));
     }
 
+    @GetMapping(value = "/{bookingId}/invoice", produces = MediaType.TEXT_HTML_VALUE)
+    @Operation(summary = "Download booking invoice (HTML)")
+    public ResponseEntity<String> downloadInvoice(
+            @AuthenticationPrincipal UserPrincipal principal,
+            @PathVariable String bookingId) {
+
+        String html = bookingService.getInvoiceHtml(principal.userId(), bookingId);
+        return ResponseEntity.ok()
+                .header(HttpHeaders.CONTENT_DISPOSITION, "attachment; filename=\"invoice-" + bookingId + ".html\"")
+                .body(html);
+    }
+
+    @GetMapping("/{bookingId}/cancel-preview")
+    @Operation(summary = "Preview cancellation policy and refund amounts")
+    public ResponseEntity<ApiResponse<CancelPreviewResponse>> cancelPreview(
+            @AuthenticationPrincipal UserPrincipal principal,
+            @PathVariable String bookingId,
+            HttpServletRequest request) {
+
+        return ResponseEntity.ok(ApiResponse.ok(
+                bookingService.getCancelPreview(principal.userId(), bookingId),
+                ClosiqRequestIdFilter.getRequestId(request)));
+    }
+
     @PostMapping("/{bookingId}/cancel")
     @Operation(summary = "Cancel booking")
     public ResponseEntity<ApiResponse<BookingDetailResponse>> cancelBooking(
@@ -109,6 +138,18 @@ public class BookingController {
 
         return ResponseEntity.ok(ApiResponse.ok(
                 bookingService.getTimeline(principal.userId(), bookingId),
+                ClosiqRequestIdFilter.getRequestId(request)));
+    }
+
+    @GetMapping("/{bookingId}/trial/reject-preview")
+    @Operation(summary = "Preview trial rejection policy and refund amounts")
+    public ResponseEntity<ApiResponse<TrialRejectPreviewResponse>> trialRejectPreview(
+            @AuthenticationPrincipal UserPrincipal principal,
+            @PathVariable String bookingId,
+            HttpServletRequest request) {
+
+        return ResponseEntity.ok(ApiResponse.ok(
+                lifecycleService.previewTrialReject(principal.userId(), bookingId),
                 ClosiqRequestIdFilter.getRequestId(request)));
     }
 
@@ -138,15 +179,16 @@ public class BookingController {
     }
 
     @PostMapping("/{bookingId}/return-request")
-    @Operation(summary = "Schedule return pickup")
-    public ResponseEntity<ApiResponse<Map<String, Object>>> returnRequest(
+    @Operation(summary = "Schedule return pickup (backend assigns date and window)")
+    public ResponseEntity<ApiResponse<ReturnScheduleResponse>> returnRequest(
             @AuthenticationPrincipal UserPrincipal principal,
             @PathVariable String bookingId,
-            @Valid @RequestBody ReturnRequestRequest body,
+            @RequestBody(required = false) ReturnRequestRequest body,
             HttpServletRequest request) {
 
+        ReturnRequestRequest safeBody = body != null ? body : new ReturnRequestRequest(null);
         return ResponseEntity.ok(ApiResponse.ok(
-                lifecycleService.requestReturn(principal.userId(), bookingId, body),
+                lifecycleService.requestReturn(principal.userId(), bookingId, safeBody),
                 ClosiqRequestIdFilter.getRequestId(request)));
     }
 }

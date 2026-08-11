@@ -10,9 +10,15 @@ import com.closiq.booking.repository.BookingItemRepository;
 import com.closiq.booking.repository.BookingRepository;
 import com.closiq.booking.repository.BookingTimelineRepository;
 import com.closiq.booking.repository.CheckoutSessionRepository;
+import com.closiq.booking.repository.TrialSessionRepository;
+import com.closiq.booking.domain.TrialSession;
+import com.closiq.shipment.domain.Shipment;
+import com.closiq.shipment.domain.ShipmentType;
+import com.closiq.shipment.repository.ShipmentRepository;
 import com.closiq.booking.web.dto.BookingDetailResponse;
 import com.closiq.booking.web.dto.BookingSummaryResponse;
 import com.closiq.booking.web.dto.CancelBookingRequest;
+import com.closiq.booking.web.dto.CancelPreviewResponse;
 import com.closiq.booking.web.dto.CreateBookingRequest;
 import com.closiq.booking.web.dto.CreateBookingResponse;
 import com.closiq.booking.web.dto.TimelineEventResponse;
@@ -32,10 +38,15 @@ import com.closiq.config.ClosiqProperties;
 import com.closiq.inventory.domain.InventoryItem;
 import com.closiq.inventory.service.AvailabilityService;
 import com.closiq.inventory.service.InventoryHoldService;
+import com.closiq.payment.domain.Payment;
+import com.closiq.payment.domain.Refund;
+import com.closiq.payment.repository.RefundRepository;
+import com.closiq.payment.service.RefundService;
 import com.closiq.user.domain.Address;
 import com.closiq.user.repository.AddressRepository;
 import com.closiq.user.repository.ServiceablePincodeRepository;
 import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -48,6 +59,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.UUID;
 
+@Slf4j
 @Service
 @RequiredArgsConstructor
 public class BookingService {
@@ -75,6 +87,14 @@ public class BookingService {
     private final BookingMapper bookingMapper;
     private final BookingHoldExpiryService holdExpiryService;
     private final ClosiqProperties properties;
+    private final RefundRepository refundRepository;
+    private final RefundService refundService;
+    private final CancellationPolicyService cancellationPolicyService;
+    private final BookingInvoiceService bookingInvoiceService;
+    private final BookingLifecycleTimelineBuilder timelineBuilder;
+    private final TrialSessionRepository trialSessionRepository;
+    private final ShipmentRepository shipmentRepository;
+    private final BookingLifecycleService bookingLifecycleService;
 
     @Transactional
     public CreateBookingResponse createHold(UUID customerId, String idempotencyKey, CreateBookingRequest request) {
@@ -211,8 +231,37 @@ public class BookingService {
         Address address = booking.getDeliveryAddressId() != null
                 ? addressRepository.findById(booking.getDeliveryAddressId()).orElse(null)
                 : null;
-        List<BookingTimeline> timeline = timelineRepository.findByBookingIdOrderByOccurredAtAsc(booking.getId());
-        return bookingMapper.toDetail(booking, item, address, timeline);
+        List<BookingTimeline> history = timelineRepository.findByBookingIdOrderByOccurredAtAsc(booking.getId());
+        Payment payment = resolvePaymentForDetail(booking);
+        List<Refund> refunds = refundRepository.findByBookingIdOrderByInitiatedAtAsc(booking.getId());
+        TrialSession trialSession = trialSessionRepository.findByBookingId(booking.getId()).orElse(null);
+        if (trialSession != null) {
+            bookingLifecycleService.expireTrialIfNeeded(trialSession);
+        }
+        Shipment returnShipment = shipmentRepository
+                .findByBookingIdAndShipmentType(booking.getId(), ShipmentType.RETURN)
+                .orElse(null);
+        return bookingMapper.toDetail(booking, item, address, history, payment, refunds, trialSession, returnShipment);
+    }
+
+    @Transactional(readOnly = true)
+    public CancelPreviewResponse getCancelPreview(UUID customerId, String bookingIdOrNumber) {
+        Booking booking = resolveBooking(customerId, bookingIdOrNumber);
+        return cancellationPolicyService.preview(booking);
+    }
+
+    @Transactional(readOnly = true)
+    public String getInvoiceHtml(UUID customerId, String bookingIdOrNumber) {
+        Booking booking = resolveBooking(customerId, bookingIdOrNumber);
+        if (!bookingInvoiceService.isInvoiceAvailable(booking)) {
+            throw new ClosiqException(ErrorCode.INVALID_STATE_TRANSITION, "Invoice not available");
+        }
+        BookingItem item = bookingItemRepository.findByBookingId(booking.getId())
+                .orElseThrow(() -> new ClosiqException(ErrorCode.NOT_FOUND, "Booking item not found"));
+        Address address = booking.getDeliveryAddressId() != null
+                ? addressRepository.findById(booking.getDeliveryAddressId()).orElse(null)
+                : null;
+        return bookingInvoiceService.generateHtmlInvoice(booking, item, address);
     }
 
     @Transactional(readOnly = true)
@@ -235,7 +284,10 @@ public class BookingService {
         List<BookingSummaryResponse> responses = pageItems.stream()
                 .map(booking -> {
                     BookingItem item = bookingItemRepository.findByBookingId(booking.getId()).orElseThrow();
-                    return bookingMapper.toSummary(booking, item);
+                    Payment payment = BookingStatus.PENDING_PAYMENT.equals(booking.getStatus())
+                            ? null
+                            : resolvePaymentForDetail(booking);
+                    return bookingMapper.toSummary(booking, item, payment);
                 })
                 .toList();
 
@@ -251,13 +303,18 @@ public class BookingService {
     @Transactional
     public BookingDetailResponse cancelBooking(UUID customerId, String bookingIdOrNumber, CancelBookingRequest request) {
         Booking booking = resolveBooking(customerId, bookingIdOrNumber);
+        CancelPreviewResponse preview = cancellationPolicyService.preview(booking);
 
-        if (!BookingStatus.PENDING_PAYMENT.equals(booking.getStatus())
-                && !BookingStatus.CONFIRMED.equals(booking.getStatus())) {
-            throw new ClosiqException(ErrorCode.INVALID_STATE_TRANSITION);
+        if (!preview.isEligible()) {
+            throw new ClosiqException(ErrorCode.INVALID_STATE_TRANSITION, "Cancellation is not allowed at this stage");
         }
 
+        String fromStatus = booking.getStatus();
+        BookingStatusTransitions.assertTransition(fromStatus, BookingStatus.CANCELLED);
+
         Instant now = Instant.now();
+        initiateCancellationRefunds(booking, customerId, preview, request.getReason());
+
         booking.setStatus(BookingStatus.CANCELLED);
         booking.setCancelledAt(now);
         booking.setCancelReason(request.getReason());
@@ -265,7 +322,12 @@ public class BookingService {
         bookingRepository.save(booking);
 
         inventoryHoldService.releaseByBookingId(booking.getId(), InventoryHoldService.RELEASED);
-        timelineService.append(booking.getId(), customerId, BookingStatus.CANCELLED, "Booking cancelled");
+        timelineService.append(
+                booking.getId(),
+                customerId,
+                BookingStatus.CANCELLED,
+                "Booking cancelled",
+                preview.getPolicyLabel());
 
         return getBooking(customerId, booking.getId().toString());
     }
@@ -273,9 +335,61 @@ public class BookingService {
     @Transactional(readOnly = true)
     public List<TimelineEventResponse> getTimeline(UUID customerId, String bookingIdOrNumber) {
         Booking booking = resolveBooking(customerId, bookingIdOrNumber);
-        return timelineRepository.findByBookingIdOrderByOccurredAtAsc(booking.getId()).stream()
-                .map(t -> bookingMapper.toTimelineEvent(t, booking.getStatus()))
-                .toList();
+        List<BookingTimeline> history = timelineRepository.findByBookingIdOrderByOccurredAtAsc(booking.getId());
+        return timelineBuilder.build(booking, history);
+    }
+
+    private void initiateCancellationRefunds(
+            Booking booking, UUID customerId, CancelPreviewResponse preview, String reason) {
+
+        if (preview.getRefundAmount() <= 0 || BookingStatus.PENDING_PAYMENT.equals(booking.getStatus())) {
+            return;
+        }
+
+        try {
+            Payment payment = refundService.resolvePaymentForBooking(booking);
+            int expectedDays = preview.getExpectedRefundBusinessDays();
+
+            if (preview.getRentalRefundAmount() > 0) {
+                String type = preview.getNonRefundableAmount() > 0
+                        ? RefundService.TYPE_PARTIAL
+                        : RefundService.TYPE_RENTAL;
+                refundService.initiateRefund(
+                        payment.getId(),
+                        booking.getId(),
+                        type,
+                        preview.getRentalRefundAmount() * 100L,
+                        "cancel-rental-" + booking.getId(),
+                        customerId,
+                        reason,
+                        expectedDays);
+            }
+
+            if (preview.getDepositRefundAmount() > 0) {
+                refundService.initiateRefund(
+                        payment.getId(),
+                        booking.getId(),
+                        RefundService.TYPE_DEPOSIT,
+                        preview.getDepositRefundAmount() * 100L,
+                        "cancel-deposit-" + booking.getId(),
+                        customerId,
+                        reason,
+                        expectedDays);
+            }
+        } catch (ClosiqException ex) {
+            log.warn("Cancellation refund stub for booking {}: {}", booking.getId(), ex.getMessage());
+        }
+    }
+
+    private Payment resolvePaymentForDetail(Booking booking) {
+        if (BookingStatus.PENDING_PAYMENT.equals(booking.getStatus())) {
+            return null;
+        }
+        try {
+            return refundService.resolvePaymentForBooking(booking);
+        } catch (Exception ex) {
+            return null;
+        }
     }
 
     private Booking resolveBooking(UUID customerId, String bookingIdOrNumber) {

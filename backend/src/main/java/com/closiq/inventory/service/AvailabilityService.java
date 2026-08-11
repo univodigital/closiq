@@ -1,6 +1,7 @@
 package com.closiq.inventory.service;
 
 import com.closiq.catalog.domain.Product;
+import com.closiq.catalog.domain.ProductVariant;
 import com.closiq.catalog.repository.ProductRepository;
 import com.closiq.catalog.repository.ProductVariantRepository;
 import com.closiq.catalog.web.dto.ProductAvailabilityResponse;
@@ -20,16 +21,20 @@ import org.springframework.transaction.annotation.Transactional;
 
 import java.time.LocalDate;
 import java.util.ArrayList;
+import java.util.HashMap;
 import java.util.HashSet;
 import java.util.List;
+import java.util.Map;
 import java.util.Set;
 import java.util.UUID;
+import java.util.stream.Collectors;
 
 @Service
 @RequiredArgsConstructor
 public class AvailabilityService {
 
     private static final String ACTIVE_PRODUCT = "ACTIVE";
+    private static final String ACTIVE_VARIANT = "ACTIVE";
     private static final String ACTIVE_RESERVATION = "ACTIVE";
     private static final String ACTIVE_BLOCK = "ACTIVE";
 
@@ -111,6 +116,82 @@ public class AvailabilityService {
     @Transactional(readOnly = true)
     public boolean isRangeAvailable(UUID variantId, LocalDate startDate, LocalDate effectiveEndDate) {
         return selectAvailableItem(variantId, startDate, effectiveEndDate).isPresent();
+    }
+
+    /**
+     * Batch availability for product listing — one query set for all variants on the page.
+     * A product is available when any ACTIVE variant has a free inventory item for the full range
+     * (rental end + cleaning buffer).
+     */
+    @Transactional(readOnly = true)
+    public Map<UUID, Boolean> areProductsAvailableForDates(
+            List<Product> products, LocalDate startDate, LocalDate endDate) {
+
+        if (products.isEmpty() || startDate == null || endDate == null) {
+            return Map.of();
+        }
+        if (endDate.isBefore(startDate)) {
+            throw new ClosiqException(ErrorCode.VALIDATION_ERROR, "endDate must be on or after startDate");
+        }
+
+        List<UUID> productIds = products.stream().map(Product::getId).toList();
+        List<ProductVariant> variants = productVariantRepository.findByProductIdInAndStatusOrderBySortOrderAsc(
+                productIds, ACTIVE_VARIANT);
+
+        Map<UUID, List<ProductVariant>> variantsByProduct = variants.stream()
+                .collect(Collectors.groupingBy(v -> v.getProduct().getId()));
+
+        List<UUID> variantIds = variants.stream().map(ProductVariant::getId).toList();
+        if (variantIds.isEmpty()) {
+            return products.stream().collect(Collectors.toMap(Product::getId, p -> false));
+        }
+
+        LocalDate rangeEnd = endDate;
+        for (Product product : products) {
+            LocalDate effective = endDate.plusDays(product.getCleaningBufferDays());
+            if (effective.isAfter(rangeEnd)) {
+                rangeEnd = effective;
+            }
+        }
+
+        List<InventoryItem> items = inventoryItemRepository.findRentableByVariantIds(
+                variantIds, InventoryItemStatus.RETIRED);
+        List<InventoryReservation> reservations = reservationRepository.findActiveForVariantsInRange(
+                variantIds, startDate, rangeEnd);
+        List<InventoryBlock> blocks = blockRepository.findActiveForVariantsInRange(
+                variantIds, startDate, rangeEnd);
+
+        Map<UUID, List<InventoryItem>> itemsByVariant = items.stream()
+                .collect(Collectors.groupingBy(i -> i.getProductVariant().getId()));
+
+        Map<UUID, Boolean> result = new HashMap<>();
+        for (Product product : products) {
+            LocalDate effectiveEnd = endDate.plusDays(product.getCleaningBufferDays());
+            boolean available = false;
+            for (ProductVariant variant : variantsByProduct.getOrDefault(product.getId(), List.of())) {
+                for (InventoryItem item : itemsByVariant.getOrDefault(variant.getId(), List.of())) {
+                    if (InventoryItemStatus.MAINTENANCE.equals(item.getStatus())) {
+                        continue;
+                    }
+                    boolean freeForRange = true;
+                    for (LocalDate date = startDate; !date.isAfter(effectiveEnd); date = date.plusDays(1)) {
+                        if (!isItemFreeOnDate(item.getId(), date, reservations, blocks)) {
+                            freeForRange = false;
+                            break;
+                        }
+                    }
+                    if (freeForRange) {
+                        available = true;
+                        break;
+                    }
+                }
+                if (available) {
+                    break;
+                }
+            }
+            result.put(product.getId(), available);
+        }
+        return result;
     }
 
     @Transactional(readOnly = true)

@@ -32,4 +32,7 @@ public class SellerBookingListItemResponse {
     String deliveryPincode;
     Instant prepBy;
     String notes;
+    Instant acceptDeadlineAt;
+    boolean acceptanceExpired;
+    int refundExpectedBusinessDays;
 }

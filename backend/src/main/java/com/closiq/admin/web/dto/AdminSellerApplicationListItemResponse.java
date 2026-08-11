@@ -18,4 +18,6 @@ public class AdminSellerApplicationListItemResponse {
     String city;
     String status;
     Instant submittedAt;
+    Instant reviewedAt;
+    String rejectionReason;
 }
