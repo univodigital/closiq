@@ -1,6 +1,6 @@
 "use client";
 
-import { use, useState } from "react";
+import { use, useState, useEffect } from "react";
 import Image from "next/image";
 import { useRouter } from "next/navigation";
 import { useQuery } from "@tanstack/react-query";
@@ -16,9 +16,10 @@ import { ROUTES } from "@/shared/constants/routes";
 import { cn } from "@/lib/utils";
 import { useAuth } from "@/providers/AuthProvider";
 import { useBag } from "@/providers/BagProvider";
+import { useRentalDates } from "@/providers/RentalDatesProvider";
 import { WishlistButton } from "@/features/wishlist/components/WishlistButton";
 import { RentalDateFields } from "@/features/checkout/components/RentalDateFields";
-import { rentalDatesError, formatRentalLimits } from "@/features/checkout/utils/rental-dates";
+import { rentalDatesError, formatRentalLimits, isRentalRangeAvailable } from "@/features/checkout/utils/rental-dates";
 import { Skeleton } from "@/components/ui/skeleton";
 
 export default function ProductDetailPage({ params }: { params: Promise<{ slug: string }> }) {
@@ -26,10 +27,18 @@ export default function ProductDetailPage({ params }: { params: Promise<{ slug: 
   const router = useRouter();
   const { isAuthenticated } = useAuth();
   const { addItem } = useBag();
+  const { dates: sharedDates, setDates: setSharedDates } = useRentalDates();
   const [selectedSize, setSelectedSize] = useState<string | null>(null);
   const [rentalStart, setRentalStart] = useState("");
   const [rentalEnd, setRentalEnd] = useState("");
   const [dateTouched, setDateTouched] = useState(false);
+
+  useEffect(() => {
+    if (sharedDates?.start && sharedDates?.end && !rentalStart && !rentalEnd) {
+      setRentalStart(sharedDates.start);
+      setRentalEnd(sharedDates.end);
+    }
+  }, [sharedDates, rentalStart, rentalEnd]);
 
   const product = useQuery({ queryKey: ["product", slug], queryFn: () => productService.getProduct(slug) });
   const reviews = useQuery({ queryKey: ["reviews", slug], queryFn: () => productService.getProductReviews(slug) });
@@ -85,6 +94,11 @@ export default function ProductDetailPage({ params }: { params: Promise<{ slug: 
     setDateTouched(true);
     if (!p || !size || !variantId) return;
 
+    if (availability.isFetching) {
+      toast.message("Checking availability…");
+      return;
+    }
+
     const error = rentalDatesError(
       availability.data?.data,
       rentalStart,
@@ -93,6 +107,14 @@ export default function ProductDetailPage({ params }: { params: Promise<{ slug: 
     );
     if (error) {
       toast.error(error);
+      return;
+    }
+
+    if (
+      availability.data?.data &&
+      !isRentalRangeAvailable(availability.data.data, rentalStart, rentalEnd, rentalLimits)
+    ) {
+      toast.error("These dates are no longer available. Choose different dates.");
       return;
     }
 
@@ -158,7 +180,7 @@ export default function ProductDetailPage({ params }: { params: Promise<{ slug: 
                   onClick={() => setSelectedSize(v.size)}
                   className={cn(
                     "min-w-[44px] rounded-sm border px-4 py-2 text-sm transition-colors",
-                    size === v.size ? "border-accent bg-gold-light text-accent-foreground" : "border-border",
+                    size === v.size ? "border-accent bg-gold-light text-accent" : "border-border hover:border-border-strong",
                     !v.available && "opacity-40 line-through",
                   )}
                 >
@@ -176,10 +198,12 @@ export default function ProductDetailPage({ params }: { params: Promise<{ slug: 
                 setRentalStart(value);
                 setDateTouched(true);
                 if (rentalEnd && value > rentalEnd) setRentalEnd("");
+                if (rentalEnd && value <= rentalEnd) setSharedDates(value, rentalEnd);
               }}
               onEndChange={(value) => {
                 setRentalEnd(value);
                 setDateTouched(true);
+                if (rentalStart) setSharedDates(rentalStart, value);
               }}
               error={dateError}
             />
@@ -213,7 +237,7 @@ export default function ProductDetailPage({ params }: { params: Promise<{ slug: 
           <div className="mt-8 flex flex-col gap-3 sm:flex-row">
             <Button
               type="button"
-              variant="primary"
+              variant="rent"
               size="lg"
               className="sm:flex-1"
               disabled={!canProceed}

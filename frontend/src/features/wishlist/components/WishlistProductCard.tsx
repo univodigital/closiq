@@ -7,9 +7,11 @@ import type { Product } from "@/shared/types";
 export function WishlistProductCard({
   product,
   className,
+  onChangeDates,
 }: {
   product: Product;
   className?: string;
+  onChangeDates?: () => void;
 }) {
   const { isWishlisted, toggleWishlist } = useWishlist();
 
@@ -19,6 +21,7 @@ export function WishlistProductCard({
       className={className}
       isWishlisted={isWishlisted(product.id)}
       onWishlistToggle={toggleWishlist}
+      onChangeDates={onChangeDates}
     />
   );
 }

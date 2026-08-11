@@ -1,6 +1,7 @@
 "use client";
 
 import { Container, PageHeader } from "@/shared/components/layout/Container";
+import { ListingDateBar } from "@/features/products/components/ListingDateBar";
 import { ShopProductGrid } from "@/features/shop/components/ShopProductGrid";
 import { SHOP_AUDIENCE_LABELS, type ShopAudienceSlug } from "@/shared/constants/shop-nav";
 
@@ -25,6 +26,7 @@ export function ShopDiscoverView({
         description={description}
         breadcrumb={audienceLabel}
       />
+      <ListingDateBar className="mb-8 max-w-md rounded-sm border border-border p-4" />
       <ShopProductGrid
         params={{
           audience,

@@ -10,7 +10,7 @@ import {
 } from "react";
 import type { User, UserRole } from "@/shared/types";
 import { authService } from "@/features/auth/services";
-import type { RegistrationProfile } from "@/features/auth/services/auth.service";
+import type { RegistrationProfile, VerifyOtpResult } from "@/features/auth/services/auth.service";
 import { fetchUserAddresses, fetchUserProfile } from "@/features/user/services";
 import { SESSION_COOKIE } from "@/shared/constants/routes";
 
@@ -19,9 +19,11 @@ interface AuthContextValue {
   isLoading: boolean;
   isAuthenticated: boolean;
   hasRole: (role: UserRole) => boolean;
-  login: (identifier: string) => Promise<{ otpSessionId: string }>;
+  login: (identifier: string) => Promise<{ otpSessionId: string; resendAvailableInSeconds?: number }>;
   loginWithPassword: (identifier: string, password: string) => Promise<void>;
-  verifyOtp: (otpSessionId: string, otp: string, profile?: RegistrationProfile) => Promise<void>;
+  verifyRegistrationOtp: (otpSessionId: string, otp: string) => Promise<VerifyOtpResult>;
+  verifyLoginOtp: (otpSessionId: string, otp: string) => Promise<void>;
+  completeRegistration: (otpSessionId: string, profile: RegistrationProfile) => Promise<void>;
   resetPassword: (otpSessionId: string, otp: string, newPassword: string) => Promise<void>;
   logout: () => Promise<void>;
   refreshUser: () => Promise<void>;
@@ -96,9 +98,24 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     [refreshUser],
   );
 
-  const verifyOtp = useCallback(
-    async (otpSessionId: string, otp: string, profile?: RegistrationProfile) => {
-      await authService.verifyOtp(otpSessionId, otp, profile);
+  const verifyRegistrationOtp = useCallback(
+    async (otpSessionId: string, otp: string) => {
+      return authService.verifyRegistrationOtp(otpSessionId, otp);
+    },
+    [],
+  );
+
+  const verifyLoginOtp = useCallback(
+    async (otpSessionId: string, otp: string) => {
+      await authService.verifyLoginOtp(otpSessionId, otp);
+      await refreshUser();
+    },
+    [refreshUser],
+  );
+
+  const completeRegistration = useCallback(
+    async (otpSessionId: string, profile: RegistrationProfile) => {
+      await authService.completeRegistration(otpSessionId, profile);
       await refreshUser();
     },
     [refreshUser],
@@ -131,12 +148,25 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       hasRole: (role) => user?.roles.includes(role) ?? false,
       login,
       loginWithPassword,
-      verifyOtp,
+      verifyRegistrationOtp,
+      verifyLoginOtp,
+      completeRegistration,
       resetPassword,
       logout,
       refreshUser,
     }),
-    [user, isLoading, login, loginWithPassword, verifyOtp, resetPassword, logout, refreshUser],
+    [
+      user,
+      isLoading,
+      login,
+      loginWithPassword,
+      verifyRegistrationOtp,
+      verifyLoginOtp,
+      completeRegistration,
+      resetPassword,
+      logout,
+      refreshUser,
+    ],
   );
 
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;

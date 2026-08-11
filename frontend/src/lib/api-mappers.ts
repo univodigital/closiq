@@ -6,6 +6,7 @@ import type {
   Notification,
   Order,
   OrderStatus,
+  OrderTrialSession,
   Product,
   ProductFilters,
   Review,
@@ -17,7 +18,14 @@ import type {
 } from "@/shared/types";
 
 export function mapOrderStatus(status: string): OrderStatus {
-  return status.toLowerCase() as OrderStatus;
+  const normalized = status.toLowerCase();
+  if (normalized === "pending_payment") return "pending_payment";
+  if (normalized === "seller_accepted" || normalized === "preparing") return "confirmed";
+  if (normalized === "return_in_transit") return "return_scheduled";
+  if (normalized === "trial_rejected") return "trial_rejected";
+  if (normalized === "refund_pending") return "refund_pending";
+  if (normalized === "completed") return "deposit_refunded";
+  return normalized as OrderStatus;
 }
 
 function instantToIso(value?: string | null): string | null {
@@ -42,6 +50,7 @@ interface RawProductSummary {
   audience?: "men" | "women" | "kids";
   garmentType?: string;
   trending?: boolean;
+  availableForDates?: boolean | null;
 }
 
 interface RawProductDetail extends RawProductSummary {
@@ -83,6 +92,7 @@ export function mapProductSummary(raw: RawProductSummary): Product {
     deliverablePincodes: [],
     includesTrial: raw.includesTrial ?? false,
     trending: raw.trending ?? raw.badges?.includes("trending") ?? false,
+    availableForDates: raw.availableForDates ?? null,
     createdAt: new Date().toISOString(),
   };
 }
@@ -141,6 +151,23 @@ interface RawBookingSummary {
   totalAmount: number;
   currency?: string;
   createdAt: string;
+  paymentStatus?: string | null;
+  paymentPending?: boolean;
+  checkoutBatchId?: string | null;
+}
+
+interface RawPaymentSummary {
+  paymentId?: string;
+  status: string;
+  method?: string;
+  rentalAmount: number;
+  depositAmount: number;
+  deliveryFee: number;
+  discountAmount: number;
+  totalPaid: number;
+  paidAt?: string | null;
+  checkoutBatchId?: string | null;
+  paymentPending: boolean;
 }
 
 interface RawBookingDetail extends RawBookingSummary {
@@ -152,6 +179,62 @@ interface RawBookingDetail extends RawBookingSummary {
   discountAmount?: number;
   includesTrial: boolean;
   trialDurationMinutes: number;
+  trialInfo?: {
+    startedAt: string;
+    expiresAt: string;
+    outcome: string;
+    active: boolean;
+    expired: boolean;
+    acceptedAt?: string | null;
+    rejectedAt?: string | null;
+  } | null;
+  paymentSummary?: RawPaymentSummary | null;
+  refundDetails?: {
+    refundAmount: number;
+    depositRefundAmount: number;
+    totalRefunded: number;
+    status: string;
+    refundMethod?: string;
+    expectedBusinessDays?: number;
+    expectedBy?: string | null;
+    items?: Array<{
+      refundId: string;
+      type: string;
+      amount: number;
+      status: string;
+      initiatedAt?: string;
+      processedAt?: string | null;
+      expectedBy?: string | null;
+    }>;
+  } | null;
+  depositSummary?: {
+    depositStatus: string;
+    inspectionStatus?: string | null;
+    depositAmount: number;
+    damageDeduction: number;
+    lateFee: number;
+    cleaningFee?: number;
+    totalDeduction?: number;
+    deductionReason?: string | null;
+    refundAmount: number;
+    refundStatus?: string | null;
+    refundMethod?: string;
+    expectedRefundWindow?: string;
+  } | null;
+  returnPickup?: {
+    shipmentId: string;
+    returnReference: string;
+    status: string;
+    pickupDate: string;
+    pickupWindow: string;
+    pickupScheduledAt: string;
+    pickedUpAt?: string | null;
+    completedAt?: string | null;
+    agentName?: string | null;
+  } | null;
+  invoiceAvailable?: boolean;
+  depositRefundExpectedBusinessDays?: number;
+  cancellation?: { eligible: boolean; policyLabel: string } | null;
   deliveryAddress?: {
     line1: string;
     line2?: string;
@@ -163,6 +246,7 @@ interface RawBookingDetail extends RawBookingSummary {
   timeline?: Array<{
     status: string;
     label: string;
+    description?: string | null;
     timestamp?: string | null;
     completed?: boolean | null;
     current?: boolean | null;
@@ -205,6 +289,9 @@ export function mapBookingSummaryToOrder(raw: RawBookingSummary): Order {
     trialDurationMinutes: 15,
     createdAt: raw.createdAt,
     timeline: [],
+    paymentStatus: raw.paymentStatus ?? null,
+    paymentPending: raw.paymentPending ?? raw.status === "PENDING_PAYMENT",
+    checkoutBatchId: raw.checkoutBatchId ?? null,
   };
 }
 
@@ -213,6 +300,7 @@ export function mapBookingDetailToOrder(raw: RawBookingDetail): Order {
   const timeline: TimelineEvent[] = (raw.timeline ?? []).map((event) => ({
     status: event.status.toLowerCase(),
     label: event.label,
+    description: event.description ?? null,
     timestamp: instantToIso(event.timestamp),
     completed: event.completed ?? false,
     current: event.current ?? false,
@@ -235,8 +323,73 @@ export function mapBookingDetailToOrder(raw: RawBookingDetail): Order {
     rentalAmount: raw.rentalAmount,
     depositAmount: raw.depositAmount,
     deliveryFee: raw.deliveryFee,
+    discountAmount: raw.discountAmount ?? 0,
     totalPaid: raw.totalAmount,
     currency: "INR",
+    paymentStatus: raw.paymentSummary?.status ?? null,
+    paymentPending: raw.paymentSummary?.paymentPending ?? raw.status === "PENDING_PAYMENT",
+    checkoutBatchId: raw.paymentSummary?.checkoutBatchId ?? null,
+    paymentSummary: raw.paymentSummary
+      ? {
+          paymentId: raw.paymentSummary.paymentId,
+          status: raw.paymentSummary.status,
+          method: raw.paymentSummary.method,
+          rentalAmount: raw.paymentSummary.rentalAmount,
+          depositAmount: raw.paymentSummary.depositAmount,
+          deliveryFee: raw.paymentSummary.deliveryFee,
+          discountAmount: raw.paymentSummary.discountAmount,
+          totalPaid: raw.paymentSummary.totalPaid,
+          paidAt: raw.paymentSummary.paidAt ?? null,
+          checkoutBatchId: raw.paymentSummary.checkoutBatchId ?? null,
+          paymentPending: raw.paymentSummary.paymentPending,
+        }
+      : null,
+    refundDetails: raw.refundDetails
+      ? {
+          refundAmount: raw.refundDetails.refundAmount,
+          depositRefundAmount: raw.refundDetails.depositRefundAmount,
+          totalRefunded: raw.refundDetails.totalRefunded,
+          status: raw.refundDetails.status,
+          refundMethod: raw.refundDetails.refundMethod,
+          expectedBusinessDays: raw.refundDetails.expectedBusinessDays,
+          expectedBy: raw.refundDetails.expectedBy ?? null,
+          items: raw.refundDetails.items ?? [],
+        }
+      : null,
+    depositSummary: raw.depositSummary
+      ? {
+          depositStatus: raw.depositSummary.depositStatus,
+          inspectionStatus: raw.depositSummary.inspectionStatus ?? null,
+          depositAmount: raw.depositSummary.depositAmount,
+          damageDeduction: raw.depositSummary.damageDeduction,
+          lateFee: raw.depositSummary.lateFee,
+          cleaningFee: raw.depositSummary.cleaningFee ?? 0,
+          totalDeduction: raw.depositSummary.totalDeduction ?? 0,
+          deductionReason: raw.depositSummary.deductionReason ?? null,
+          refundAmount: raw.depositSummary.refundAmount,
+          refundStatus: raw.depositSummary.refundStatus ?? null,
+          refundMethod: raw.depositSummary.refundMethod,
+          expectedRefundWindow: raw.depositSummary.expectedRefundWindow,
+        }
+      : null,
+    returnPickup: raw.returnPickup
+      ? {
+          shipmentId: raw.returnPickup.shipmentId,
+          returnReference: raw.returnPickup.returnReference,
+          status: raw.returnPickup.status,
+          pickupDate: raw.returnPickup.pickupDate,
+          pickupWindow: raw.returnPickup.pickupWindow,
+          pickupScheduledAt: raw.returnPickup.pickupScheduledAt,
+          pickedUpAt: raw.returnPickup.pickedUpAt ?? null,
+          completedAt: raw.returnPickup.completedAt ?? null,
+          agentName: raw.returnPickup.agentName ?? null,
+        }
+      : null,
+    invoiceAvailable: raw.invoiceAvailable ?? false,
+    depositRefundExpectedBusinessDays: raw.depositRefundExpectedBusinessDays,
+    cancellation: raw.cancellation
+      ? { eligible: raw.cancellation.eligible, policyLabel: raw.cancellation.policyLabel }
+      : null,
     deliveryAddress: {
       line1: raw.deliveryAddress?.line1 ?? "",
       line2: raw.deliveryAddress?.line2,
@@ -247,6 +400,17 @@ export function mapBookingDetailToOrder(raw: RawBookingDetail): Order {
     },
     includesTrial: raw.includesTrial,
     trialDurationMinutes: raw.trialDurationMinutes,
+    trialSession: raw.trialInfo
+      ? {
+          startedAt: raw.trialInfo.startedAt,
+          expiresAt: raw.trialInfo.expiresAt,
+          outcome: raw.trialInfo.outcome as OrderTrialSession["outcome"],
+          active: raw.trialInfo.active,
+          expired: raw.trialInfo.expired,
+          acceptedAt: raw.trialInfo.acceptedAt ?? null,
+          rejectedAt: raw.trialInfo.rejectedAt ?? null,
+        }
+      : null,
     createdAt: raw.createdAt,
     timeline,
   };

@@ -3,6 +3,7 @@
 import Link from "next/link";
 import Image from "next/image";
 import { useQuery } from "@tanstack/react-query";
+import { AcceptCountdown } from "@/features/seller/components/AcceptCountdown";
 import { sellerService } from "@/features/seller/services";
 import { PageHeader } from "@/shared/components/layout/Container";
 import { StatusBadge } from "@/components/ui/badge";
@@ -39,6 +40,12 @@ export default function SellerBookingsPage() {
                 <p className="text-sm text-muted-foreground">
                   {b.customerName} · {formatDateRange(b.rentalStart, b.rentalEnd)}
                 </p>
+                {b.acceptDeadlineAt && !b.acceptanceExpired && b.status === "confirmed" ? (
+                  <p className="mt-1 text-xs text-warning">
+                    Accept within{" "}
+                    <AcceptCountdown deadlineAt={b.acceptDeadlineAt} expired={b.acceptanceExpired} />
+                  </p>
+                ) : null}
                 <p className="mt-1 font-mono text-sm text-success">+{formatCurrency(b.earnings)}</p>
               </div>
             </Link>

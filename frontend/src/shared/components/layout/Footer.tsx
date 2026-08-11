@@ -1,5 +1,6 @@
 import Link from "next/link";
 import { Container } from "./Container";
+import { Logo } from "./Logo";
 
 export function Footer() {
   return (
@@ -7,9 +8,7 @@ export function Footer() {
       <Container>
         <div className="flex flex-col gap-8 md:flex-row md:justify-between">
           <div>
-            <p className="font-heading text-xl text-foreground">
-              Closiq<span className="text-accent">.</span>
-            </p>
+            <Logo size="sm" />
             <p className="mt-2 max-w-xs text-sm text-muted-foreground">
               Premium clothing rental with a 15-minute home trial. Mumbai.
             </p>

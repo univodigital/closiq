@@ -24,8 +24,12 @@ const ibmPlexMono = IBM_Plex_Mono({
 });
 
 export const metadata: Metadata = {
-  title: { default: "Closiq — Rent the look", template: "%s — Closiq" },
+  title: { default: "Closiq — Buy · Rent · Redefine", template: "%s — Closiq" },
   description: "Premium clothing rental marketplace with 15-minute home trial.",
+  icons: {
+    icon: "/logo-icon.png",
+    apple: "/logo-icon.png",
+  },
 };
 
 export default function RootLayout({ children }: { children: React.ReactNode }) {

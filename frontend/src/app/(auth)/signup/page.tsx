@@ -12,29 +12,9 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { ROUTES } from "@/shared/constants/routes";
-import { ApiError } from "@/lib/api-client";
-
-const passwordSchema = z
-  .string()
-  .min(8, "At least 8 characters")
-  .regex(/[A-Z]/, "Include an uppercase letter")
-  .regex(/\d/, "Include a number");
 
 const schema = z.object({
-  firstName: z.string().min(1, "First name is required").max(50, "Max 50 characters"),
-  lastName: z.string().min(1, "Last name is required").max(50, "Max 50 characters"),
-  gender: z.enum(["MALE", "FEMALE", "OTHER", "PREFER_NOT_TO_SAY"], {
-    required_error: "Select your gender",
-    invalid_type_error: "Select your gender",
-  }),
-  username: z
-    .string()
-    .min(3, "At least 3 characters")
-    .max(30, "Max 30 characters")
-    .regex(/^[a-zA-Z0-9_]+$/, "Letters, numbers, and underscores only"),
-  email: z.string().email("Enter a valid email address"),
   phone: z.string().regex(/^(\+91)?[6-9]\d{9}$/, "Enter valid 10-digit mobile"),
-  password: passwordSchema,
   acceptTerms: z.literal(true, { errorMap: () => ({ message: "You must accept the terms" }) }),
 });
 
@@ -52,22 +32,13 @@ export default function SignupPage() {
     setLoading(true);
     try {
       const phone = data.phone.startsWith("+91") ? data.phone : `+91${data.phone}`;
-      const { otpSessionId } = await authService.register(phone, true, data.email.trim().toLowerCase());
-      sessionStorage.setItem("otpSessionId", otpSessionId);
-      sessionStorage.setItem("otpPhone", phone);
-      sessionStorage.setItem("registerUsername", data.username);
-      sessionStorage.setItem("registerPassword", data.password);
-      sessionStorage.setItem("registerEmail", data.email.trim().toLowerCase());
-      sessionStorage.setItem("registerFirstName", data.firstName.trim());
-      sessionStorage.setItem("registerLastName", data.lastName.trim());
-      sessionStorage.setItem("registerGender", data.gender);
+      const result = await authService.register(phone, true);
+      sessionStorage.setItem("otpSessionId", result.otpSessionId);
+      sessionStorage.setItem("otpPhone", result.phone ?? phone);
+      sessionStorage.setItem("otpResendIn", String(result.resendAvailableInSeconds ?? 60));
       router.push("/signup/verify?mode=register");
-    } catch (error) {
-      if (error instanceof ApiError && error.status === 409) {
-        toast.error("Username is already taken");
-      } else {
-        toast.error("Could not send OTP");
-      }
+    } catch {
+      toast.error("Could not send OTP");
     } finally {
       setLoading(false);
     }
@@ -77,64 +48,16 @@ export default function SignupPage() {
     <Card>
       <CardHeader>
         <CardTitle>Create account</CardTitle>
-        <p className="text-sm text-muted-foreground">Set up your profile, username, email, mobile, and password</p>
+        <p className="text-sm text-muted-foreground">Enter your mobile number to get started</p>
       </CardHeader>
       <CardContent>
         <form onSubmit={handleSubmit(onSubmit)} className="space-y-4">
-          <div className="grid gap-4 sm:grid-cols-2">
-            <div>
-              <label className="label-caps mb-2 block text-muted-foreground">First name</label>
-              <Input {...register("firstName")} placeholder="Ananya" autoComplete="given-name" error={errors.firstName?.message} />
-            </div>
-            <div>
-              <label className="label-caps mb-2 block text-muted-foreground">Last name</label>
-              <Input {...register("lastName")} placeholder="Sharma" autoComplete="family-name" error={errors.lastName?.message} />
-            </div>
-          </div>
-          <div>
-            <label className="label-caps mb-2 block text-muted-foreground">Gender</label>
-            <select
-              {...register("gender")}
-              className="flex h-11 w-full rounded-sm border border-input bg-background px-3 py-2 text-sm"
-            >
-              <option value="">Select gender</option>
-              <option value="MALE">Male</option>
-              <option value="FEMALE">Female</option>
-              <option value="OTHER">Other</option>
-              <option value="PREFER_NOT_TO_SAY">Prefer not to say</option>
-            </select>
-            {errors.gender && <p className="mt-1 text-xs text-destructive">{errors.gender.message}</p>}
-          </div>
-          <div>
-            <label className="label-caps mb-2 block text-muted-foreground">Username</label>
-            <Input {...register("username")} placeholder="your_username" autoComplete="username" error={errors.username?.message} />
-          </div>
-          <div>
-            <label className="label-caps mb-2 block text-muted-foreground">Email</label>
-            <Input
-              {...register("email")}
-              type="email"
-              placeholder="you@example.com"
-              autoComplete="email"
-              error={errors.email?.message}
-            />
-          </div>
           <div>
             <label className="label-caps mb-2 block text-muted-foreground">Mobile</label>
             <div className="flex gap-2">
               <span className="flex h-11 items-center rounded-sm border border-border px-3 text-sm">+91</span>
-              <Input {...register("phone")} placeholder="9876543210" autoComplete="tel" error={errors.phone?.message} />
+              <Input {...register("phone")} placeholder="Mobile number" autoComplete="tel" error={errors.phone?.message} />
             </div>
-          </div>
-          <div>
-            <label className="label-caps mb-2 block text-muted-foreground">Password</label>
-            <Input
-              {...register("password")}
-              type="password"
-              placeholder="Min 8 chars, 1 uppercase, 1 number"
-              autoComplete="new-password"
-              error={errors.password?.message}
-            />
           </div>
           <label className="flex items-start gap-2 text-sm">
             <input type="checkbox" {...register("acceptTerms")} className="mt-1" />

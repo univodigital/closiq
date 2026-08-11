@@ -22,6 +22,6 @@ export interface CategoryService {
 }
 
 export interface HomeService {
-  getFeaturedProducts(): Promise<ApiResponse<Product[]>>;
-  getTrendingProducts(): Promise<ApiResponse<Product[]>>;
+  getFeaturedProducts(params?: Pick<ProductListParams, "startDate" | "endDate">): Promise<ApiResponse<Product[]>>;
+  getTrendingProducts(params?: Pick<ProductListParams, "startDate" | "endDate">): Promise<ApiResponse<Product[]>>;
 }

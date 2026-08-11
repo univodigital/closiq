@@ -1,41 +1,63 @@
 @import "tailwindcss";
 
 :root {
-  /* Surfaces */
-  --background: #fbf7f0;
-  --foreground: #221c16;
-  --card: #f6f0e4;
-  --card-foreground: #221c16;
-  --muted: #f1eadc;
-  --muted-foreground: #5c564c;
+  /* ── Core palette ── */
+  --navy: #032044;
+  --navy-dark: #071a2f;
+  --ivory: #fcf8f3;
+  --white: #ffffff;
+  --oxblood: #6e1f2a;
+  --oxblood-hover: #54151f;
+  --sand: #f3ece4;
+  --border: #e5ddd4;
+  --border-strong: #d8cec2;
+  --text-body: #3e454b;
+  --text-muted: #77716b;
+  --text-subtle: #9b938b;
+  --champagne: #c6a77a;
+  --success: #2f6b4f;
+  --error: #b42318;
 
-  /* Brand */
-  --primary: #1e2a22;
-  --primary-foreground: #fbf7f0;
-  --accent: #b8923f;
-  --accent-foreground: #241a08;
-  --destructive: #a9525a;
-  --destructive-foreground: #fbf7f0;
+  /* ── Semantic surfaces ── */
+  --background: var(--ivory);
+  --foreground: var(--text-body);
+  --card: var(--white);
+  --card-foreground: var(--text-body);
+  --muted: var(--sand);
+  --muted-foreground: var(--text-muted);
+  --subtle-foreground: var(--text-subtle);
 
-  /* Extended palette */
-  --ink-soft: #2a392f;
-  --gold-deep: #8c6c28;
-  --gold-light: #f4e9d2;
-  --rose-deep: #7c3a41;
-  --line-dark: #3a4a3d;
-  --success: #2a5c45;
-  --success-muted: #e4eae2;
-  --warning: #8c6c28;
-  --error: #7c3a41;
+  /* ── Brand actions ── */
+  --primary: var(--navy);
+  --primary-foreground: var(--ivory);
+  --accent: var(--oxblood);
+  --accent-foreground: var(--white);
+  --destructive: var(--error);
+  --destructive-foreground: var(--white);
 
-  /* UI */
-  --border: #dcd2c2;
-  --ring: #b8923f;
+  /* ── Rent / Buy distinction ── */
+  --rent: var(--oxblood);
+  --rent-hover: var(--oxblood-hover);
+  --buy: var(--navy);
+  --buy-hover: var(--navy-dark);
+
+  /* ── Extended tokens ── */
+  --ink-soft: var(--navy-dark);
+  --gold-deep: var(--oxblood-hover);
+  --gold-light: color-mix(in srgb, var(--oxblood) 8%, var(--ivory));
+  --rose-deep: var(--oxblood);
+  --line-dark: var(--navy-dark);
+  --champagne-muted: color-mix(in srgb, var(--champagne) 18%, var(--ivory));
+  --success-muted: color-mix(in srgb, var(--success) 10%, var(--ivory));
+  --warning: var(--champagne);
+  --warning-muted: color-mix(in srgb, var(--champagne) 22%, var(--ivory));
+  --error-muted: color-mix(in srgb, var(--error) 8%, var(--ivory));
+
+  /* ── UI chrome ── */
+  --ring: var(--navy);
   --radius: 2px;
-
-  /* Shadows */
-  --shadow-sm: 0 1px 0 var(--border);
-  --shadow-md: 0 4px 24px rgba(34, 28, 22, 0.08);
+  --shadow-sm: 0 1px 2px rgba(7, 26, 47, 0.04);
+  --shadow-md: 0 2px 12px rgba(7, 26, 47, 0.06);
 }
 
 @theme inline {
@@ -45,6 +67,7 @@
   --color-card-foreground: var(--card-foreground);
   --color-muted: var(--muted);
   --color-muted-foreground: var(--muted-foreground);
+  --color-subtle-foreground: var(--subtle-foreground);
   --color-primary: var(--primary);
   --color-primary-foreground: var(--primary-foreground);
   --color-accent: var(--accent);
@@ -52,7 +75,18 @@
   --color-destructive: var(--destructive);
   --color-destructive-foreground: var(--destructive-foreground);
   --color-border: var(--border);
+  --color-border-strong: var(--border-strong);
   --color-ring: var(--ring);
+  --color-navy: var(--navy);
+  --color-navy-dark: var(--navy-dark);
+  --color-oxblood: var(--oxblood);
+  --color-oxblood-hover: var(--oxblood-hover);
+  --color-rent: var(--rent);
+  --color-rent-hover: var(--rent-hover);
+  --color-buy: var(--buy);
+  --color-buy-hover: var(--buy-hover);
+  --color-champagne: var(--champagne);
+  --color-champagne-muted: var(--champagne-muted);
   --color-ink-soft: var(--ink-soft);
   --color-gold-deep: var(--gold-deep);
   --color-gold-light: var(--gold-light);
@@ -61,7 +95,9 @@
   --color-success: var(--success);
   --color-success-muted: var(--success-muted);
   --color-warning: var(--warning);
+  --color-warning-muted: var(--warning-muted);
   --color-error: var(--error);
+  --color-error-muted: var(--error-muted);
   --font-sans: var(--font-dm-sans);
   --font-mono: var(--font-ibm-plex-mono);
   --radius-sm: 2px;
@@ -95,8 +131,8 @@
   }
 
   ::selection {
-    background: color-mix(in srgb, var(--accent) 28%, transparent);
-    color: var(--foreground);
+    background: color-mix(in srgb, var(--oxblood) 18%, transparent);
+    color: var(--navy-dark);
   }
 
   h1,
@@ -123,12 +159,22 @@
     letter-spacing: -0.02em;
     line-height: 1.2;
   }
+
+  a:focus-visible,
+  button:focus-visible,
+  input:focus-visible,
+  select:focus-visible,
+  textarea:focus-visible {
+    outline: 2px solid var(--ring);
+    outline-offset: 2px;
+  }
 }
 
 .font-heading {
   font-family: var(--font-dm-sans), "DM Sans", sans-serif;
   font-optical-sizing: auto;
   font-weight: 700;
+  color: var(--primary);
 }
 
 .font-mono {

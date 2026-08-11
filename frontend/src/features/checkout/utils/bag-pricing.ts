@@ -32,21 +32,30 @@ export async function calculateBagPricing(
 ): Promise<CheckoutSummary | undefined> {
   if (!lines.length) return undefined;
 
-  const summaries: CheckoutSummary[] = [];
-  for (const line of lines) {
+  if (lines.length === 1) {
+    const line = lines[0];
     const res = await checkoutService.calculate({
       productId: line.product.id,
       variantId: line.variantId,
       rentalStartDate: line.item.start,
       rentalEndDate: line.item.end,
       pincode: options?.pincode,
-      // Apply coupon once on the first line only
-      couponCode: summaries.length === 0 ? options?.couponCode : undefined,
+      couponCode: options?.couponCode,
     });
-    summaries.push(res.data);
+    return res.data;
   }
 
-  return mergeCheckoutSummaries(summaries);
+  const res = await checkoutService.calculateBatch({
+    items: lines.map((line) => ({
+      productId: line.product.id,
+      variantId: line.variantId,
+      rentalStartDate: line.item.start,
+      rentalEndDate: line.item.end,
+    })),
+    pincode: options?.pincode,
+    couponCode: options?.couponCode,
+  });
+  return res.data;
 }
 
 export function mergeCheckoutSummaries(summaries: CheckoutSummary[]): CheckoutSummary {

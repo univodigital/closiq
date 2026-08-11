@@ -42,6 +42,83 @@ export class MockOrderService implements OrderService {
     if (!order) throw new Error("Order not found");
     return wrap(order);
   }
+
+  async getCancelPreview(id: string) {
+    await delay(200);
+    const order = orders.find((o) => o.id === id || o.orderNumber === id);
+    if (!order) throw new Error("Order not found");
+    return wrap({
+      eligible: order.status === "confirmed",
+      policyCode: "PRE_DISPATCH",
+      policyLabel: "Cancel before dispatch: Full refund",
+      originalAmount: order.totalPaid,
+      refundAmount: order.totalPaid,
+      nonRefundableAmount: 0,
+      rentalRefundAmount: order.rentalAmount,
+      depositRefundAmount: order.depositAmount,
+      deliveryFeeNonRefundable: 0,
+      refundMethod: "ORIGINAL_PAYMENT_METHOD",
+      expectedRefundBusinessDays: 5,
+    });
+  }
+
+  async cancelOrder(id: string, _reason: string, _comment?: string) {
+    await delay(400);
+    const order = orders.find((o) => o.id === id || o.orderNumber === id);
+    if (!order) throw new Error("Order not found");
+    return wrap({ ...order, status: "cancelled" as const });
+  }
+
+  async getTrialRejectPreview(_id: string) {
+    await delay(200);
+    return wrap({
+      policyCode: "TRIAL_REJECT",
+      policyLabel: "Reject during home trial — no rental charge",
+      rentalPaid: 3000,
+      rentalRefundAmount: 3000,
+      deliveryFeeNonRefundable: 0,
+      depositAmount: 2000,
+      depositRefundAmount: 0,
+      depositRefundTiming: "5–7 business days after inspection",
+      refundMethod: "ORIGINAL_PAYMENT_METHOD",
+      rentalRefundExpectedBusinessDays: 5,
+      depositRefundExpectedBusinessDaysMin: 5,
+      depositRefundExpectedBusinessDaysMax: 7,
+    });
+  }
+
+  async scheduleReturn(id: string) {
+    await delay(400);
+    const order = orders.find((o) => o.id === id || o.orderNumber === id);
+    if (!order) throw new Error("Order not found");
+    return wrap({
+      status: "return_scheduled",
+      shipmentId: "ship_mock_return",
+      returnReference: "RET-MOCK-001",
+      pickupDate: order.rentalEnd,
+      pickupWindow: "10:00 – 14:00",
+      pickupScheduledAt: new Date().toISOString(),
+      alreadyScheduled: order.status === "return_scheduled",
+    });
+  }
+
+  async trackReturnPickup(_id: string) {
+    await delay(300);
+    return wrap({
+      shipmentId: "ship_mock_return",
+      status: "CREATED",
+      trackingNumber: "RET-MOCK-001",
+      pickupScheduledAt: new Date().toISOString(),
+      pickupTimeSlot: "10:00-14:00",
+      agentName: null,
+      agentPhone: null,
+      events: [],
+    });
+  }
+
+  async downloadInvoice(_id: string) {
+    await delay(200);
+  }
 }
 
 export class MockAvailabilityService implements AvailabilityService {
@@ -90,7 +167,7 @@ export class MockBookingService implements BookingService {
     await delay(500);
     const order = orders.find((o) => o.id === orderId);
     if (!order) throw new Error("Order not found");
-    return wrap({ ...order, status: "cancelled" as const });
+    return wrap({ ...order, status: "trial_rejected" as const });
   }
 }
 

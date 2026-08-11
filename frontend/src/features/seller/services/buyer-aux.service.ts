@@ -15,5 +15,15 @@ export interface CheckoutService {
     pincode?: string;
     couponCode?: string;
   }): Promise<ApiResponse<CheckoutSummary>>;
+  calculateBatch(input: {
+    items: Array<{
+      productId: string;
+      variantId: string;
+      rentalStartDate: string;
+      rentalEndDate: string;
+    }>;
+    pincode?: string;
+    couponCode?: string;
+  }): Promise<ApiResponse<CheckoutSummary>>;
   checkPincode(pincode: string): Promise<ApiResponse<{ serviceable: boolean; city?: string }>>;
 }

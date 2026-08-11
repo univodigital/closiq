@@ -133,12 +133,12 @@ export class MockCategoryService implements CategoryService {
 }
 
 export class MockHomeService implements HomeService {
-  async getFeaturedProducts() {
+  async getFeaturedProducts(_params?: Pick<ProductListParams, "startDate" | "endDate">) {
     await delay(300);
     return wrap(products.slice(0, 4));
   }
 
-  async getTrendingProducts() {
+  async getTrendingProducts(_params?: Pick<ProductListParams, "startDate" | "endDate">) {
     await delay(300);
     return wrap(products.filter((p) => p.trending));
   }

@@ -6,8 +6,9 @@ import { toast } from "sonner";
 import { adminService } from "@/features/admin/services";
 import { PageHeader } from "@/shared/components/layout/Container";
 import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
 import { StatusBadge } from "@/components/ui/badge";
+
+const MIN_REJECTION_REASON_LENGTH = 10;
 
 export default function AdminSellerApplicationsPage() {
   const queryClient = useQueryClient();
@@ -37,15 +38,27 @@ export default function AdminSellerApplicationsPage() {
       setRejectingId(null);
       setRejectReason("");
       queryClient.invalidateQueries({ queryKey: ["admin", "seller-applications"] });
+      queryClient.invalidateQueries({ queryKey: ["admin", "dashboard"] });
     },
     onError: (err: Error) => toast.error(err.message),
   });
+
+  function cancelReject() {
+    setRejectingId(null);
+    setRejectReason("");
+  }
+
+  const trimmedReason = rejectReason.trim();
+  const reasonTooShort =
+    trimmedReason.length > 0 && trimmedReason.length < MIN_REJECTION_REASON_LENGTH;
 
   return (
     <div>
       <PageHeader title="Seller applications" description="Review and approve new sellers" />
       {isLoading ? (
         <p className="text-muted-foreground">Loading…</p>
+      ) : data?.data.length === 0 ? (
+        <p className="text-muted-foreground">No seller applications to review.</p>
       ) : (
         <div className="space-y-3">
           {data?.data.map((app) => (
@@ -63,12 +76,19 @@ export default function AdminSellerApplicationsPage() {
                 <StatusBadge status={app.status.toLowerCase()} />
               </div>
 
+              {app.status === "REJECTED" && app.rejectionReason?.trim() && (
+                <div className="mt-3 rounded-sm border border-border bg-muted/30 p-3 text-sm">
+                  <p className="label-caps text-muted-foreground">Rejection reason</p>
+                  <p className="mt-1">{app.rejectionReason.trim()}</p>
+                </div>
+              )}
+
               {(app.status === "PENDING" || app.status === "UNDER_REVIEW") && (
                 <div className="mt-4 flex flex-wrap items-center gap-2">
                   <Button
                     size="sm"
                     variant="primary"
-                    disabled={approveMutation.isPending}
+                    disabled={approveMutation.isPending || rejectingId === app.applicationId}
                     onClick={() => approveMutation.mutate(app.applicationId)}
                   >
                     Approve
@@ -76,7 +96,11 @@ export default function AdminSellerApplicationsPage() {
                   <Button
                     size="sm"
                     variant="outline"
-                    onClick={() => setRejectingId(app.applicationId)}
+                    disabled={approveMutation.isPending}
+                    onClick={() => {
+                      setRejectingId(app.applicationId);
+                      setRejectReason("");
+                    }}
                   >
                     Reject
                   </Button>
@@ -84,22 +108,43 @@ export default function AdminSellerApplicationsPage() {
               )}
 
               {rejectingId === app.applicationId && (
-                <div className="mt-3 flex flex-wrap gap-2">
-                  <Input
-                    placeholder="Rejection reason"
+                <div className="mt-4 space-y-3 rounded-sm border border-border bg-muted/20 p-4">
+                  <div>
+                    <p className="font-medium">Reject seller application</p>
+                    <p className="mt-1 text-sm text-muted-foreground">
+                      Provide a clear reason. The applicant will see this message on their application page.
+                    </p>
+                  </div>
+                  <textarea
                     value={rejectReason}
                     onChange={(e) => setRejectReason(e.target.value)}
+                    rows={4}
+                    maxLength={2000}
+                    placeholder="Example: Your business registration document is incomplete. Please upload the complete document and submit again."
+                    className="flex min-h-[6rem] w-full rounded-sm border border-input bg-background px-3 py-2 text-sm"
                   />
-                  <Button
-                    size="sm"
-                    variant="outline"
-                    disabled={!rejectReason.trim() || rejectMutation.isPending}
-                    onClick={() =>
-                      rejectMutation.mutate({ applicationId: app.applicationId, reason: rejectReason })
-                    }
-                  >
-                    Confirm reject
-                  </Button>
+                  {reasonTooShort && (
+                    <p className="text-sm text-rose-deep">
+                      Rejection reason must be at least {MIN_REJECTION_REASON_LENGTH} characters.
+                    </p>
+                  )}
+                  <div className="flex flex-wrap gap-2">
+                    <Button size="sm" variant="outline" onClick={cancelReject}>
+                      Cancel
+                    </Button>
+                    <Button
+                      size="sm"
+                      variant="outline"
+                      disabled={
+                        trimmedReason.length < MIN_REJECTION_REASON_LENGTH || rejectMutation.isPending
+                      }
+                      onClick={() =>
+                        rejectMutation.mutate({ applicationId: app.applicationId, reason: trimmedReason })
+                      }
+                    >
+                      Reject application
+                    </Button>
+                  </div>
                 </div>
               )}
             </div>

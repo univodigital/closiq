@@ -68,7 +68,7 @@ export default function ForgotPasswordPage() {
             <label className="label-caps mb-2 block text-muted-foreground">Phone or email</label>
             <Input
               {...register("identifier")}
-              placeholder="9876543210 or you@example.com"
+              placeholder="Phone or email"
               autoComplete="username"
               error={errors.identifier?.message}
             />

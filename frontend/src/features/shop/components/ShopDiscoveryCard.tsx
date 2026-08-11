@@ -38,8 +38,7 @@ export function ShopDiscoveryCard({
         className="object-cover transition-transform duration-700 ease-out group-hover:scale-[1.04]"
         sizes={sizes ?? (featured ? "(max-width: 768px) 100vw, 50vw" : "(max-width: 768px) 50vw, 25vw")}
       />
-      <div className="absolute inset-0 bg-gradient-to-t from-primary/85 via-primary/25 to-transparent transition-opacity duration-500 group-hover:from-primary/90" />
-      <div className="absolute inset-x-0 bottom-0 p-4 md:p-5">
+      <div className="absolute inset-x-0 bottom-0 bg-navy-dark/90 p-4 md:p-5">
         <p className="font-heading text-lg text-primary-foreground md:text-xl">{label}</p>
         {caption && (
           <p className="mt-1 text-xs text-primary-foreground/75 md:text-sm">{caption}</p>

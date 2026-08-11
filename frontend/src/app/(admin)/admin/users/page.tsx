@@ -175,8 +175,8 @@ export default function AdminUsersPage() {
         <Card className="mb-6">
           <CardContent className="grid gap-4 p-5">
             <div className="grid gap-3 sm:grid-cols-2">
-              <Input placeholder="Phone (10 digits)" value={phone} onChange={(e) => setPhone(e.target.value)} />
-              <Input placeholder="Email (optional)" value={email} onChange={(e) => setEmail(e.target.value)} />
+              <Input placeholder="Mobile number" value={phone} onChange={(e) => setPhone(e.target.value)} />
+              <Input placeholder="Email" value={email} onChange={(e) => setEmail(e.target.value)} />
               <Input placeholder="First name" value={firstName} onChange={(e) => setFirstName(e.target.value)} />
               <Input placeholder="Last name" value={lastName} onChange={(e) => setLastName(e.target.value)} />
             </div>

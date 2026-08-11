@@ -1,6 +1,7 @@
 "use client";
 
 import { Container, PageHeader } from "@/shared/components/layout/Container";
+import { ListingDateBar } from "@/features/products/components/ListingDateBar";
 import { ShopProductGrid } from "@/features/shop/components/ShopProductGrid";
 import { SHOP_AUDIENCE_LABELS, SHOP_OCCASIONS, type ShopAudienceSlug } from "@/shared/constants/shop-nav";
 
@@ -21,6 +22,7 @@ export function ShopOccasionView({
         description={`${occasionLabel} pieces from our ${audienceLabel.toLowerCase()} edit.`}
         breadcrumb={`${audienceLabel} · Occasion`}
       />
+      <ListingDateBar className="mb-8 max-w-md rounded-sm border border-border p-4" />
       <ShopProductGrid params={{ audience, occasion: slug, sort: "createdAt:desc" }} />
     </Container>
   );

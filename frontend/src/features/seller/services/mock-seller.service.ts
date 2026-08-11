@@ -24,7 +24,7 @@ import {
   mapSellerListing,
   mapSellerListingDetail,
 } from "../lib/seller-mappers";
-import type { SellerInventoryBlock, SellerListingDetail } from "../types";
+import type { SellerInventoryBlock, SellerListingDetail, SellerBookingDetail } from "../types";
 import type { CheckoutService, NotificationService } from "./buyer-aux.service";
 
 const bookings = bookingsData as SellerBooking[];
@@ -128,12 +128,72 @@ export class MockSellerService {
     await delay(300);
     const booking = bookings.find((b) => b.id === id || b.bookingId === id);
     if (!booking) throw new Error("Booking not found");
-    return wrap(booking);
+    const deadline = new Date(Date.now() + 23 * 60 * 60 * 1000).toISOString();
+    const detail: SellerBookingDetail = {
+      id: booking.id,
+      rentalNumber: booking.rentalNumber,
+      orderNumber: booking.orderNumber,
+      status: booking.status,
+      productId: booking.productId,
+      productTitle: booking.productTitle,
+      productImage: booking.productImage,
+      variantSize: booking.variantSize,
+      rentalStart: booking.rentalStart,
+      rentalEnd: booking.rentalEnd,
+      rentalDays: booking.rentalDays,
+      currency: "INR",
+      earnings: {
+        rentalAmount: booking.earnings + booking.commission,
+        commission: booking.commission,
+        netEarnings: booking.earnings,
+        depositHeld: 0,
+        creditedToWallet: booking.status === "completed",
+      },
+      customer: {
+        name: booking.customerName,
+        phoneMasked: "+91******",
+        deliveryPincode: booking.deliveryPincode,
+        deliveryCity: "Mumbai",
+      },
+      prepBy: booking.prepBy,
+      notes: booking.notes,
+      customerNotes: null,
+      prepChecklist: [
+        { item: "Accept booking", done: booking.status !== "confirmed" },
+        { item: "Inspect and prepare garment", done: false },
+        { item: "Hand off to courier", done: false },
+      ],
+      acceptDeadlineAt: booking.status === "confirmed" ? deadline : null,
+      acceptanceExpired: false,
+      canAccept: booking.status === "confirmed",
+      canReject: booking.status === "confirmed",
+      canMarkReady: booking.status === "seller_accepted",
+      acceptSlaHours: 24,
+      refundExpectedBusinessDays: 5,
+      rejectReasons: [
+        { code: "ITEM_UNAVAILABLE", label: "Item unavailable", requiresComment: false },
+        { code: "OTHER", label: "Other", requiresComment: true },
+      ],
+      rejectPreview:
+        booking.status === "confirmed"
+          ? {
+              refundAmount: booking.earnings + booking.commission,
+              expectedBusinessDays: 5,
+              refundMethod: "Original payment method",
+              currency: "INR",
+            }
+          : null,
+    };
+    return wrap(detail);
   }
 
-  async listProducts() {
+  async listProducts(params?: { status?: string }) {
     await delay(300);
-    return wrap(sellerListings());
+    const listings = sellerListings();
+    const filtered = params?.status
+      ? listings.filter((listing) => listing.status === params.status)
+      : listings;
+    return wrap(filtered);
   }
 
   async getProduct(id: string) {
@@ -275,6 +335,50 @@ export class MockCheckoutService implements CheckoutService {
       serviceable: input.pincode ? MUMBAI_SERVICEABLE_PINCODES.includes(input.pincode) : true,
     };
     return wrap(summary);
+  }
+
+  async calculateBatch(input: {
+    items: Array<{
+      productId: string;
+      variantId: string;
+      rentalStartDate: string;
+      rentalEndDate: string;
+    }>;
+    pincode?: string;
+    couponCode?: string;
+  }) {
+    const summaries: CheckoutSummary[] = [];
+    for (const item of input.items) {
+      const res = await this.calculate({ ...item, pincode: input.pincode, couponCode: undefined });
+      summaries.push(res.data);
+    }
+    const subtotal = summaries.reduce((sum, s) => sum + s.subtotal, 0);
+    const discountAmount = input.couponCode === "FIRST500" ? 500 : 0;
+    const totalAmount = subtotal - discountAmount;
+    const merged: CheckoutSummary = {
+      rentalDays: Math.max(...summaries.map((s) => s.rentalDays)),
+      lineItems: [
+        ...summaries.flatMap((s, i) =>
+          s.lineItems
+            .filter((li) => li.type === "RENTAL")
+            .map((li) =>
+              summaries.length > 1 ? { ...li, label: `Item ${i + 1}: ${li.label}` } : li,
+            ),
+        ),
+        ...summaries[0].lineItems.filter((li) => li.type !== "RENTAL" && li.type !== "DISCOUNT"),
+        ...(discountAmount
+          ? [{ type: "DISCOUNT" as const, label: "Coupon FIRST500", amount: -discountAmount }]
+          : []),
+      ],
+      subtotal,
+      discountAmount,
+      totalAmount,
+      depositAmount: summaries.reduce((sum, s) => sum + s.depositAmount, 0),
+      payNowAmount: totalAmount,
+      currency: "INR",
+      serviceable: summaries.every((s) => s.serviceable !== false),
+    };
+    return wrap(merged);
   }
 
   async checkPincode(pincode: string) {

@@ -1,5 +1,5 @@
-import Link from "next/link";
 import { ROUTES } from "@/shared/constants/routes";
+import { Logo } from "@/shared/components/layout/Logo";
 import { CheckoutProgress } from "@/features/checkout/components/CheckoutProgress";
 import type { CheckoutStep } from "@/features/checkout/components/CheckoutProgress";
 
@@ -16,9 +16,7 @@ export function CheckoutLayoutShell({
     <div className="min-h-screen bg-background">
       <header className="border-b border-border px-5 py-5 md:px-12">
         <div className="mx-auto flex max-w-6xl flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
-          <Link href={ROUTES.home} className="font-heading text-xl">
-            Closiq<span className="text-accent">.</span>
-          </Link>
+          <Logo href={ROUTES.home} size="sm" />
           <CheckoutProgress current={step} queryString={queryString} />
         </div>
       </header>

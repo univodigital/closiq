@@ -37,6 +37,8 @@ class ApiProductService implements ProductService {
         sort: params?.sort,
         limit: params?.limit,
         pageToken: params?.pageToken,
+        startDate: params?.startDate,
+        endDate: params?.endDate,
       })}`,
     );
     return {
@@ -64,6 +66,8 @@ class ApiProductService implements ProductService {
         sort: params?.sort,
         limit: params?.limit,
         pageToken: params?.pageToken,
+        startDate: params?.startDate,
+        endDate: params?.endDate,
       })}`,
     );
     return {
@@ -124,6 +128,8 @@ class ApiCategoryService implements CategoryService {
         sort: params?.sort,
         limit: params?.limit,
         pageToken: params?.pageToken,
+        startDate: params?.startDate,
+        endDate: params?.endDate,
       })}`,
     );
     return {
@@ -134,16 +140,26 @@ class ApiCategoryService implements CategoryService {
 }
 
 class ApiHomeService implements HomeService {
-  async getFeaturedProducts() {
-    const res = await apiFetchEnvelope<unknown[]>("/home/featured-products");
+  async getFeaturedProducts(params?: Pick<ProductListParams, "startDate" | "endDate">) {
+    const res = await apiFetchEnvelope<unknown[]>(
+      `/home/featured-products${toQuery({
+        startDate: params?.startDate,
+        endDate: params?.endDate,
+      })}`,
+    );
     return {
       ...res,
       data: res.data.map((item) => mapProductSummary(item as Parameters<typeof mapProductSummary>[0])),
     } satisfies ApiResponse<Product[]>;
   }
 
-  async getTrendingProducts() {
-    const res = await apiFetchEnvelope<unknown[]>("/home/trending-products");
+  async getTrendingProducts(params?: Pick<ProductListParams, "startDate" | "endDate">) {
+    const res = await apiFetchEnvelope<unknown[]>(
+      `/home/trending-products${toQuery({
+        startDate: params?.startDate,
+        endDate: params?.endDate,
+      })}`,
+    );
     return {
       ...res,
       data: res.data.map((item) => mapProductSummary(item as Parameters<typeof mapProductSummary>[0])),
