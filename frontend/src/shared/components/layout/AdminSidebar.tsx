@@ -4,6 +4,7 @@ import Link from "next/link";
 import { usePathname } from "next/navigation";
 import {
   ArrowLeft,
+  FolderTree,
   LayoutDashboard,
   MessageSquare,
   Shirt,
@@ -17,6 +18,7 @@ const items = [
   { href: ROUTES.admin.dashboard, label: "Dashboard", icon: LayoutDashboard },
   { href: ROUTES.admin.users, label: "Users", icon: Users },
   { href: ROUTES.admin.products, label: "Products", icon: Shirt },
+  { href: ROUTES.admin.categories, label: "Categories", icon: FolderTree },
   { href: ROUTES.admin.reviews, label: "Reviews", icon: MessageSquare },
   { href: ROUTES.admin.sellerApplications, label: "Seller applications", icon: Store },
 ];

@@ -21,6 +21,11 @@ import {
   findVariantBySize,
 } from "@/features/checkout/utils/product-variant";
 import { calculateBagPricing, loadBagLines } from "@/features/checkout/utils/bag-pricing";
+import {
+  hasBlockingAvailabilityIssues,
+  validateBagLinesAvailability,
+} from "@/features/checkout/utils/bag-availability";
+import { BagItemAvailabilityBadge } from "@/features/checkout/components/BagItemAvailabilityBadge";
 import { isCompleteBagItem, type BagItem } from "@/features/checkout/bag/bag-store";
 import { availabilityService } from "@/features/orders/services";
 import { productService } from "@/features/products/services";
@@ -78,6 +83,16 @@ export default function CheckoutBagPage() {
     enabled: hydrated && completeItems.length > 0,
   });
 
+  const availabilityQuery = useQuery({
+    queryKey: ["bag-availability", bagKey],
+    queryFn: async () => {
+      const lines = await loadBagLines(completeItems);
+      return validateBagLinesAvailability(lines);
+    },
+    enabled: hydrated && completeItems.length > 0,
+    refetchOnWindowFocus: true,
+  });
+
   const editingProduct = useQuery({
     queryKey: ["product", editingSlug],
     queryFn: () => productService.getProduct(editingSlug!),
@@ -128,6 +143,7 @@ export default function CheckoutBagPage() {
     });
     setEditingSlug(null);
     refresh();
+    availabilityQuery.refetch();
   }
 
   function removeLine(slug: string) {
@@ -141,7 +157,14 @@ export default function CheckoutBagPage() {
   }
 
   const continueQs = urlParams.fullQuery({ couponCode: coupon || undefined });
-  const canContinue = completeItems.length > 0 && !editingSlug && !pricingQuery.isLoading;
+  const availabilityResults = availabilityQuery.data ?? [];
+  const hasAvailabilityIssues = hasBlockingAvailabilityIssues(availabilityResults);
+  const canContinue =
+    completeItems.length > 0 &&
+    !editingSlug &&
+    !pricingQuery.isLoading &&
+    !availabilityQuery.isLoading &&
+    !hasAvailabilityIssues;
 
   if (!hydrated) {
     return (
@@ -178,11 +201,26 @@ export default function CheckoutBagPage() {
             </div>
 
             {linesQuery.isLoading && <p className="text-sm text-muted-foreground">Loading items…</p>}
+            {availabilityQuery.isFetching && !availabilityQuery.isLoading && (
+              <p className="text-sm text-muted-foreground">Checking availability…</p>
+            )}
+
+            {hasAvailabilityIssues && !availabilityQuery.isLoading && (
+              <div className="rounded-sm border border-destructive/40 bg-destructive/5 p-4 text-sm">
+                <p className="font-medium text-destructive">
+                  Some items are no longer available for your selected dates.
+                </p>
+                <p className="mt-1 text-muted-foreground">
+                  Change dates or remove affected items to continue.
+                </p>
+              </div>
+            )}
 
             <ul className="space-y-4">
               {bagItems.map((item) => {
                 const line = lines.find((l) => l.item.slug === item.slug);
                 const product = line?.product;
+                const availability = availabilityResults.find((a) => a.slug === item.slug);
                 const isEditing = editingSlug === item.slug;
 
                 return (
@@ -208,6 +246,12 @@ export default function CheckoutBagPage() {
                           <>
                             <p className="mt-1 text-sm text-muted-foreground">Size {item.size}</p>
                             <p className="mt-1 text-sm">{formatDateRange(item.start, item.end)}</p>
+                            {availability && (
+                              <BagItemAvailabilityBadge
+                                status={availability.status}
+                                message={availability.message}
+                              />
+                            )}
                           </>
                         ) : (
                           <p className="mt-1 text-sm text-destructive">Incomplete rental details</p>
@@ -225,7 +269,7 @@ export default function CheckoutBagPage() {
                               size="sm"
                               onClick={() => startEditing(item)}
                             >
-                              Edit details
+                              {availability?.status === "available" ? "Edit details" : "Change dates"}
                             </Button>
                           )}
                           <Button
@@ -330,7 +374,7 @@ export default function CheckoutBagPage() {
             {canContinue ? (
               <>
                 <PriceDetails pricing={pricingQuery.data} />
-                <Button asChild variant="primary" size="lg" className="w-full">
+                <Button asChild variant="rent" size="lg" className="w-full">
                   <Link href={`${ROUTES.checkout.address}?${continueQs}`}>Continue</Link>
                 </Button>
               </>
@@ -338,7 +382,11 @@ export default function CheckoutBagPage() {
               <p className="text-sm text-muted-foreground">
                 {editingSlug
                   ? "Save or cancel edits before continuing."
-                  : "Add complete size and rental dates for each item to continue."}
+                  : hasAvailabilityIssues
+                    ? "Resolve availability issues before continuing."
+                    : availabilityQuery.isLoading
+                      ? "Checking availability…"
+                      : "Add complete size and rental dates for each item to continue."}
               </p>
             )}
           </>

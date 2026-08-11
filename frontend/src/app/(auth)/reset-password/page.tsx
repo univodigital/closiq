@@ -83,7 +83,7 @@ export default function ResetPasswordPage() {
             <label className="label-caps mb-2 block text-muted-foreground">6-digit OTP</label>
             <Input
               {...register("otp")}
-              placeholder="123456"
+              placeholder="6-digit code"
               maxLength={6}
               className="font-mono text-center tracking-[0.5em]"
               error={errors.otp?.message}
@@ -94,7 +94,7 @@ export default function ResetPasswordPage() {
             <Input
               {...register("newPassword")}
               type="password"
-              placeholder="Min 8 chars, 1 uppercase, 1 number"
+              placeholder="New password"
               autoComplete="new-password"
               error={errors.newPassword?.message}
             />
@@ -104,7 +104,7 @@ export default function ResetPasswordPage() {
             <Input
               {...register("confirmPassword")}
               type="password"
-              placeholder="Re-enter password"
+              placeholder="Confirm password"
               autoComplete="new-password"
               error={errors.confirmPassword?.message}
             />

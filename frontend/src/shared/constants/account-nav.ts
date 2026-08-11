@@ -67,7 +67,11 @@ export function buildAccountNavSections(isSeller: boolean): AccountNavSection[] 
         { href: ROUTES.account.paymentMethods, label: "Payment Methods" },
         { href: ROUTES.account.deposits, label: "Security Deposits" },
         { href: ROUTES.account.notifications, label: "Notifications" },
-        { href: ROUTES.account.settings, label: "Settings" },
+        {
+          href: ROUTES.account.settings,
+          label: "Settings",
+          matchPaths: [ROUTES.account.settings, ROUTES.account.security],
+        },
       ],
     },
   ];

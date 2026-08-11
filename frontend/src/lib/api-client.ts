@@ -76,7 +76,11 @@ async function apiFetchRaw<T>(
 ): Promise<{ success: boolean; data: T; meta?: ApiMeta }> {
   const { auth = true, ...requestInit } = init;
   const headers = new Headers(requestInit.headers);
-  if (!headers.has("Content-Type") && requestInit.body) {
+  if (
+    !headers.has("Content-Type") &&
+    requestInit.body &&
+    !(requestInit.body instanceof FormData)
+  ) {
     headers.set("Content-Type", "application/json");
   }
 

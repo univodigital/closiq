@@ -90,7 +90,6 @@ export async function updateProfile(input: UpdateProfileInput): Promise<User> {
       input.firstName && input.lastName
         ? `${input.firstName} ${input.lastName.charAt(0)}.`
         : userProfile.displayName,
-    email: input.email ?? userProfile.email,
     alternatePhone: input.alternatePhone ?? userProfile.alternatePhone,
     alternateEmail: input.alternateEmail ?? userProfile.alternateEmail,
   });

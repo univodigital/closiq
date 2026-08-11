@@ -6,6 +6,7 @@ import type {
 } from "@/shared/types";
 import type {
   SellerBusinessProfile,
+  SellerBookingDetail,
   SellerInventoryBlock,
   SellerListing,
   SellerListingDetail,
@@ -67,6 +68,11 @@ export function mapSellerListingDetail(raw: {
   city?: string;
   primaryImageUrl?: string | null;
   imageUrls?: string[];
+  images?: Array<{
+    id: string;
+    url: string;
+    sortOrder: number;
+  }>;
   variants?: Array<{
     id: string;
     size: string;
@@ -105,6 +111,11 @@ export function mapSellerListingDetail(raw: {
       : listing.imageUrl
         ? [listing.imageUrl]
         : [],
+    images: (raw.images ?? []).map((image) => ({
+      id: image.id,
+      url: image.url,
+      sortOrder: image.sortOrder,
+    })),
     variants: (raw.variants ?? []).map((variant) => ({
       id: variant.id,
       size: variant.size,
@@ -164,6 +175,9 @@ export function mapSellerBooking(raw: {
   deliveryPincode?: string | null;
   prepBy?: string | null;
   notes?: string | null;
+  acceptDeadlineAt?: string | null;
+  acceptanceExpired?: boolean;
+  refundExpectedBusinessDays?: number;
 }): SellerBooking {
   const rental = raw.rentalNumber ?? raw.bookingNumber ?? raw.id;
   return {
@@ -187,6 +201,90 @@ export function mapSellerBooking(raw: {
     deliveryPincode: raw.deliveryPincode ?? null,
     prepBy: raw.prepBy ?? null,
     notes: raw.notes ?? null,
+    acceptDeadlineAt: raw.acceptDeadlineAt ?? null,
+    acceptanceExpired: raw.acceptanceExpired ?? false,
+    refundExpectedBusinessDays: raw.refundExpectedBusinessDays,
+  };
+}
+
+export function mapSellerBookingDetail(raw: {
+  id: string;
+  rentalNumber?: string;
+  orderNumber?: string;
+  status: string;
+  productId: string;
+  productTitle: string;
+  productImage?: string;
+  variantSize?: string;
+  rentalStart: string;
+  rentalEnd: string;
+  rentalDays: number;
+  currency?: string;
+  earnings: {
+    rentalAmount: number;
+    commission: number;
+    netEarnings: number;
+    depositHeld: number;
+    creditedToWallet: boolean;
+  };
+  customer?: {
+    name?: string | null;
+    phoneMasked?: string | null;
+    deliveryPincode?: string | null;
+    deliveryCity?: string | null;
+  };
+  prepBy?: string | null;
+  notes?: string | null;
+  customerNotes?: string | null;
+  prepChecklist?: Array<{ item: string; done: boolean }>;
+  acceptDeadlineAt?: string | null;
+  acceptanceExpired?: boolean;
+  canAccept?: boolean;
+  canReject?: boolean;
+  canMarkReady?: boolean;
+  acceptSlaHours?: number;
+  refundExpectedBusinessDays?: number;
+  rejectReasons?: Array<{ code: string; label: string; requiresComment: boolean }>;
+  rejectPreview?: {
+    refundAmount: number;
+    expectedBusinessDays: number;
+    refundMethod: string;
+    currency: string;
+  } | null;
+}): SellerBookingDetail {
+  return {
+    id: raw.id,
+    rentalNumber: raw.rentalNumber ?? raw.id,
+    orderNumber: raw.orderNumber ?? "",
+    status: raw.status.toLowerCase(),
+    productId: raw.productId,
+    productTitle: raw.productTitle,
+    productImage: raw.productImage ?? "",
+    variantSize: raw.variantSize ?? "",
+    rentalStart: raw.rentalStart,
+    rentalEnd: raw.rentalEnd,
+    rentalDays: raw.rentalDays,
+    currency: raw.currency ?? "INR",
+    earnings: raw.earnings,
+    customer: {
+      name: raw.customer?.name ?? null,
+      phoneMasked: raw.customer?.phoneMasked ?? null,
+      deliveryPincode: raw.customer?.deliveryPincode ?? null,
+      deliveryCity: raw.customer?.deliveryCity ?? null,
+    },
+    prepBy: raw.prepBy ?? null,
+    notes: raw.notes ?? null,
+    customerNotes: raw.customerNotes ?? null,
+    prepChecklist: raw.prepChecklist ?? [],
+    acceptDeadlineAt: raw.acceptDeadlineAt ?? null,
+    acceptanceExpired: raw.acceptanceExpired ?? false,
+    canAccept: raw.canAccept ?? false,
+    canReject: raw.canReject ?? false,
+    canMarkReady: raw.canMarkReady ?? false,
+    acceptSlaHours: raw.acceptSlaHours ?? 24,
+    refundExpectedBusinessDays: raw.refundExpectedBusinessDays ?? 5,
+    rejectReasons: raw.rejectReasons ?? [],
+    rejectPreview: raw.rejectPreview ?? null,
   };
 }
 
@@ -220,9 +318,15 @@ export function mapSellerWallet(raw: WalletData): WalletData {
   return {
     ...raw,
     currency: "INR",
+    minPayoutAmount: raw.minPayoutAmount ?? 500,
+    payoutProviderConfigured: raw.payoutProviderConfigured ?? false,
     transactions: raw.transactions.map((txn) => ({
       ...txn,
       label: txn.label ?? txn.type,
+    })),
+    payoutMethods: (raw.payoutMethods ?? []).map((method) => ({
+      ...method,
+      verified: method.verified ?? false,
     })),
   };
 }

@@ -19,7 +19,6 @@ export interface UpdateProfileInput {
   firstName?: string;
   lastName?: string;
   gender?: Gender;
-  email?: string;
   alternatePhone?: string;
   alternateEmail?: string;
 }
@@ -72,6 +71,9 @@ interface UserProfileResponse {
   email?: string;
   emailVerified?: boolean;
   alternateEmail?: string;
+  username?: string;
+  usernameChangeAllowed?: boolean;
+  pendingEmail?: string;
   firstName: string;
   lastName: string;
   gender: Gender;
@@ -91,6 +93,9 @@ function mapProfileResponse(raw: UserProfileResponse): User {
     email: raw.email,
     emailVerified: raw.emailVerified,
     alternateEmail: raw.alternateEmail,
+    username: raw.username,
+    usernameChangeAllowed: raw.usernameChangeAllowed,
+    pendingEmail: raw.pendingEmail,
     firstName: raw.firstName,
     lastName: raw.lastName,
     gender: raw.gender,

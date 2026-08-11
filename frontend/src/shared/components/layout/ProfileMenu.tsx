@@ -66,9 +66,18 @@ export function ProfileMenu() {
           className="flex items-center gap-2 rounded-sm px-2 py-1.5 text-sm text-muted-foreground outline-none transition-colors hover:text-foreground focus-visible:ring-2 focus-visible:ring-ring"
           aria-label="Account menu"
         >
-          <span className="flex h-8 w-8 items-center justify-center rounded-full border border-border bg-muted text-xs font-medium text-foreground">
-            {initials ?? <User className="h-4 w-4" />}
-          </span>
+          {user?.avatarUrl ? (
+            // eslint-disable-next-line @next/next/no-img-element
+            <img
+              src={user.avatarUrl}
+              alt=""
+              className="h-8 w-8 rounded-full border border-border object-cover"
+            />
+          ) : (
+            <span className="flex h-8 w-8 items-center justify-center rounded-full border border-border bg-muted text-xs font-medium text-foreground">
+              {initials ?? <User className="h-4 w-4" />}
+            </span>
+          )}
           <span className="hidden max-w-[8rem] truncate md:inline">{user?.firstName}</span>
           <ChevronDown className="hidden h-4 w-4 md:block" />
         </button>
@@ -78,7 +87,7 @@ export function ProfileMenu() {
         <DropdownMenu.Content
           align="end"
           sideOffset={8}
-          className="z-50 min-w-[12rem] rounded-sm border border-border bg-background p-1 shadow-md"
+          className="z-50 min-w-[12rem] rounded-sm border border-border bg-card p-1 shadow-md"
         >
           <DropdownMenu.Label className="px-3 py-2 text-xs text-muted-foreground">
             {user?.displayName}

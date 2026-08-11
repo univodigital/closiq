@@ -17,15 +17,21 @@ const BUSINESS_TYPES: { value: SellerBusinessType; label: string }[] = [
 
 export function SellerApplicationForm({
   onSubmit,
+  initialValues,
+  submitLabel = "Submit application",
 }: {
   onSubmit: (input: SubmitSellerApplicationInput) => Promise<void>;
+  initialValues?: Partial<SubmitSellerApplicationInput>;
+  submitLabel?: string;
 }) {
-  const [businessName, setBusinessName] = useState("");
-  const [businessType, setBusinessType] = useState<SellerBusinessType>("INDIVIDUAL");
-  const [city, setCity] = useState("Mumbai");
-  const [description, setDescription] = useState("");
-  const [gstNumber, setGstNumber] = useState("");
-  const [panNumber, setPanNumber] = useState("");
+  const [businessName, setBusinessName] = useState(initialValues?.businessName ?? "");
+  const [businessType, setBusinessType] = useState<SellerBusinessType>(
+    initialValues?.businessType ?? "INDIVIDUAL",
+  );
+  const [city, setCity] = useState(initialValues?.city ?? "Mumbai");
+  const [description, setDescription] = useState(initialValues?.description ?? "");
+  const [gstNumber, setGstNumber] = useState(initialValues?.gstNumber ?? "");
+  const [panNumber, setPanNumber] = useState(initialValues?.panNumber ?? "");
   const [error, setError] = useState<string | null>(null);
   const [submitting, setSubmitting] = useState(false);
 
@@ -125,8 +131,8 @@ export function SellerApplicationForm({
 
       {error && <p className="text-sm text-rose-deep">{error}</p>}
 
-      <Button type="submit" variant="gold" disabled={submitting}>
-        {submitting ? "Submitting…" : "Submit application"}
+      <Button type="submit" variant="primary" disabled={submitting}>
+        {submitting ? "Submitting…" : submitLabel}
       </Button>
     </form>
   );

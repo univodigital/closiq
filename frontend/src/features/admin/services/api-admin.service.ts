@@ -62,6 +62,8 @@ export interface AdminSellerApplication {
   city: string;
   status: string;
   submittedAt: string;
+  reviewedAt?: string | null;
+  rejectionReason?: string | null;
 }
 
 class ApiAdminService implements AdminService {

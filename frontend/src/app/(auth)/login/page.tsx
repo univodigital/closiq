@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import Link from "next/link";
 import { useRouter, useSearchParams } from "next/navigation";
 import { useForm } from "react-hook-form";
@@ -13,6 +13,7 @@ import { Input } from "@/components/ui/input";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { ApiError } from "@/lib/api-client";
 import { normalizeAuthIdentifier } from "@/lib/auth-identifier";
+import { getSafeReturnUrl } from "@/lib/safe-return-url";
 import { ROUTES } from "@/shared/constants/routes";
 import { cn } from "@/lib/utils";
 
@@ -33,33 +34,45 @@ type LoginMode = "otp" | "password";
 export default function LoginPage() {
   const router = useRouter();
   const searchParams = useSearchParams();
-  const returnUrl = searchParams.get("returnUrl") ?? ROUTES.home;
+  const returnUrl = getSafeReturnUrl(searchParams.get("returnUrl"));
   const { login, loginWithPassword } = useAuth();
   const [mode, setMode] = useState<LoginMode>("otp");
   const [loading, setLoading] = useState(false);
 
   const otpForm = useForm<OtpFormData>({
     resolver: zodResolver(identifierSchema),
-    defaultValues: { identifier: "" },
+    defaultValues: { identifier: searchParams.get("identifier") ?? "" },
   });
 
   const passwordForm = useForm<PasswordFormData>({
     resolver: zodResolver(passwordSchema),
-    defaultValues: { identifier: "", password: "" },
+    defaultValues: { identifier: searchParams.get("identifier") ?? "", password: "" },
   });
+
+  useEffect(() => {
+    const identifier = searchParams.get("identifier");
+    if (identifier) {
+      otpForm.setValue("identifier", identifier);
+      passwordForm.setValue("identifier", identifier);
+    }
+  }, [searchParams, otpForm, passwordForm]);
 
   const onOtpSubmit = async (data: OtpFormData) => {
     setLoading(true);
     try {
       const { type, value } = normalizeAuthIdentifier(data.identifier);
-      const { otpSessionId } = await login(value);
-      sessionStorage.setItem("otpSessionId", otpSessionId);
+      const result = await login(value);
+      sessionStorage.setItem("otpSessionId", result.otpSessionId);
+      sessionStorage.setItem("otpPhone", type === "phone" ? value : "");
       sessionStorage.setItem("otpDeliveryHint", type === "email" ? value : value);
       sessionStorage.setItem("otpChannel", type);
+      sessionStorage.setItem("otpResendIn", String(result.resendAvailableInSeconds ?? 60));
       router.push(`/signup/verify?returnUrl=${encodeURIComponent(returnUrl)}&mode=login`);
     } catch (error) {
       if (error instanceof ApiError && error.status === 404) {
         toast.error("No account found with this phone or email.");
+      } else if (error instanceof ApiError && error.status === 403) {
+        toast.error(error.message);
       } else if (error instanceof ApiError) {
         toast.error(error.message);
       } else if (error instanceof Error) {
@@ -95,7 +108,7 @@ export default function LoginPage() {
   return (
     <Card>
       <CardHeader>
-        <CardTitle>Welcome back</CardTitle>
+        <CardTitle>Login</CardTitle>
         <p className="text-sm text-muted-foreground">Sign in with OTP or password</p>
       </CardHeader>
       <CardContent>
@@ -105,17 +118,17 @@ export default function LoginPage() {
             onClick={() => setMode("otp")}
             className={cn(
               "flex-1 rounded-sm px-3 py-2 text-sm transition-colors",
-              mode === "otp" ? "bg-accent text-accent-foreground" : "text-muted-foreground hover:text-foreground",
+              mode === "otp" ? "bg-primary text-primary-foreground" : "text-muted-foreground hover:text-foreground",
             )}
           >
-            OTP
+            Login with OTP
           </button>
           <button
             type="button"
             onClick={() => setMode("password")}
             className={cn(
               "flex-1 rounded-sm px-3 py-2 text-sm transition-colors",
-              mode === "password" ? "bg-accent text-accent-foreground" : "text-muted-foreground hover:text-foreground",
+              mode === "password" ? "bg-primary text-primary-foreground" : "text-muted-foreground hover:text-foreground",
             )}
           >
             Password
@@ -128,7 +141,7 @@ export default function LoginPage() {
               <label className="label-caps mb-2 block text-muted-foreground">Phone or email</label>
               <Input
                 {...otpForm.register("identifier")}
-                placeholder="9876543210 or you@example.com"
+                placeholder="Phone or email"
                 autoComplete="username"
                 error={otpForm.formState.errors.identifier?.message}
               />
@@ -136,11 +149,6 @@ export default function LoginPage() {
             <Button type="submit" variant="primary" size="lg" className="w-full" disabled={loading}>
               {loading ? "Sending OTP…" : "Send OTP"}
             </Button>
-            <p className="text-right">
-              <Link href={ROUTES.forgotPassword} className="text-sm text-accent hover:underline">
-                Forgot password?
-              </Link>
-            </p>
           </form>
         ) : (
           <form onSubmit={passwordForm.handleSubmit(onPasswordSubmit)} className="space-y-4">
@@ -148,7 +156,7 @@ export default function LoginPage() {
               <label className="label-caps mb-2 block text-muted-foreground">Phone or email</label>
               <Input
                 {...passwordForm.register("identifier")}
-                placeholder="9876543210 or you@example.com"
+                placeholder="Phone or email"
                 autoComplete="username"
                 error={passwordForm.formState.errors.identifier?.message}
               />
@@ -169,7 +177,7 @@ export default function LoginPage() {
               />
             </div>
             <Button type="submit" variant="primary" size="lg" className="w-full" disabled={loading}>
-              {loading ? "Signing in…" : "Sign in"}
+              {loading ? "Signing in…" : "Login"}
             </Button>
           </form>
         )}

@@ -27,9 +27,11 @@ export interface SellerApplicationDetail {
   applicationId: string;
   status: SellerApplicationStatus;
   businessName: string;
+  city?: string;
   submittedAt: string;
   reviewedAt?: string | null;
   rejectionReason?: string | null;
+  canReapply: boolean;
   documents: Array<{
     type: string;
     status: string;

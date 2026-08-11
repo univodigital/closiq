@@ -5,6 +5,7 @@ import Link from "next/link";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { toast } from "sonner";
 import { ProductImageUpload } from "@/features/seller/components/ProductImageUpload";
+import { listingImagesFromProduct } from "@/features/seller/lib/listing-images";
 import { sellerService, type CreateSellerProductInput } from "@/features/seller/services";
 import { categoryService } from "@/features/products/services";
 import { PageHeader } from "@/shared/components/layout/Container";
@@ -19,6 +20,7 @@ import {
   type ShopAudienceSlug,
 } from "@/shared/constants/shop-nav";
 import { ApiError } from "@/lib/api-client";
+import type { SellerListingImage } from "@/features/seller/types";
 
 const DEFAULT_VARIANT = { size: "M", quantity: 1 };
 
@@ -42,7 +44,7 @@ export default function SellerProductNewPage() {
   const [submitting, setSubmitting] = useState(false);
   const [publishing, setPublishing] = useState(false);
   const [createdProductId, setCreatedProductId] = useState<string | null>(null);
-  const [imageUrls, setImageUrls] = useState<string[]>([]);
+  const [images, setImages] = useState<SellerListingImage[]>([]);
 
   const selectedCategory = categories.data?.data.find((c) => c.id === categoryId);
   const garmentOptions = shopGarmentCategories(audience);
@@ -102,7 +104,7 @@ export default function SellerProductNewPage() {
     try {
       const res = await sellerService.createProduct(payload);
       setCreatedProductId(res.data.id);
-      setImageUrls(res.data.imageUrl ? [res.data.imageUrl] : []);
+      setImages(res.data.imageUrl ? [{ id: "", url: res.data.imageUrl, sortOrder: 0 }] : []);
       toast.success("Draft created — add photos below");
       await queryClient.invalidateQueries({ queryKey: ["seller", "products"] });
     } catch (error) {
@@ -115,12 +117,12 @@ export default function SellerProductNewPage() {
   async function refreshImages() {
     if (!createdProductId) return;
     const res = await sellerService.getProduct(createdProductId);
-    setImageUrls(res.data.imageUrls);
+    setImages(listingImagesFromProduct(res.data));
   }
 
   async function handlePublish() {
     if (!createdProductId) return;
-    if (imageUrls.length < 1) {
+    if (images.length < 1) {
       toast.error("Add at least one photo before publishing");
       return;
     }
@@ -338,14 +340,15 @@ export default function SellerProductNewPage() {
           <CardContent className="space-y-6 p-6">
             <ProductImageUpload
               productId={createdProductId}
-              imageUrls={imageUrls}
-              onUploaded={() => void refreshImages()}
+              images={images}
+              productStatus="DRAFT"
+              onUpdated={() => void refreshImages()}
             />
             <div className="flex flex-wrap gap-3">
               <Button
                 type="button"
                 variant="primary"
-                disabled={publishing || imageUrls.length < 1}
+                disabled={publishing || images.length < 1}
                 onClick={() => void handlePublish()}
               >
                 {publishing ? "Publishing…" : "Publish listing"}

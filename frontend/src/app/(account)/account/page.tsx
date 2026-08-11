@@ -124,7 +124,7 @@ export default function AccountOverviewPage() {
                     Earn from your premium wardrobe with verified seller tools.
                   </p>
                 </div>
-                <Button asChild variant="gold" size="sm">
+                <Button asChild variant="primary" size="sm">
                   <Link href={ROUTES.account.becomeSeller}>Become a seller</Link>
                 </Button>
               </CardContent>

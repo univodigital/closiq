@@ -5,6 +5,7 @@ import { usePathname, useRouter } from "next/navigation";
 import { useCallback, useEffect, useRef, useState } from "react";
 import { Heart, Search } from "lucide-react";
 import { BagNavLink } from "@/shared/components/layout/BagNavLink";
+import { Logo } from "@/shared/components/layout/Logo";
 import { ProfileMenu } from "@/shared/components/layout/ProfileMenu";
 import {
   SHOP_AUDIENCE_LABELS,
@@ -183,14 +184,12 @@ export function TopNav() {
 
   return (
     <header
-      className="relative sticky top-0 z-50 border-b border-border bg-background/90 backdrop-blur-md"
+      className="relative sticky top-0 z-50 border-b border-border bg-card/95 backdrop-blur-sm"
       onMouseLeave={scheduleClose}
     >
       <div className="relative mx-auto max-w-6xl px-4 md:px-8">
         <div className="flex items-center justify-between gap-3 py-2">
-          <Link href={ROUTES.home} className="font-heading text-xl tracking-tight text-foreground">
-            Closiq<span className="text-accent">.</span>
-          </Link>
+          <Logo href={ROUTES.home} size="sm" priority />
 
           <nav className="hidden items-center gap-5 lg:flex" aria-label="Shop">
             {AUDIENCES.map((audience) => {
@@ -244,7 +243,7 @@ export function TopNav() {
             onMouseEnter={cancelClose}
             onMouseLeave={scheduleClose}
           >
-            <div className="w-[22rem] max-w-[calc(100vw-2rem)] rounded-sm border border-border bg-background shadow-lg">
+            <div className="w-[22rem] max-w-[calc(100vw-2rem)] rounded-sm border border-border bg-card shadow-md">
               <div key={openAudience} className="mega-menu-blink">
                 <ShopMegaPanel audience={openAudience} pathname={pathname} />
               </div>

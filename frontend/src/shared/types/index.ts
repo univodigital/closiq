@@ -42,6 +42,9 @@ export interface User {
   phone: string;
   phoneVerified: boolean;
   alternatePhone?: string;
+  username?: string;
+  usernameChangeAllowed?: boolean;
+  pendingEmail?: string;
   email?: string;
   emailVerified?: boolean;
   alternateEmail?: string;
@@ -73,22 +76,143 @@ export interface UserPreferences {
 }
 
 export type OrderStatus =
+  | "pending_payment"
   | "confirmed"
   | "out_for_delivery"
   | "trial_ready"
+  | "trial_rejected"
   | "rental_active"
   | "return_scheduled"
   | "returned"
+  | "inspection"
+  | "refund_pending"
   | "deposit_refunded"
   | "cancelled";
+
+export interface OrderPaymentSummary {
+  paymentId?: string;
+  status: string;
+  method?: string;
+  rentalAmount: number;
+  depositAmount: number;
+  deliveryFee: number;
+  discountAmount: number;
+  totalPaid: number;
+  paidAt?: string | null;
+  checkoutBatchId?: string | null;
+  paymentPending: boolean;
+}
+
+export interface OrderRefundDetails {
+  refundAmount: number;
+  depositRefundAmount: number;
+  totalRefunded: number;
+  status: string;
+  refundMethod?: string;
+  expectedBusinessDays?: number;
+  expectedBy?: string | null;
+  items: Array<{
+    refundId: string;
+    type: string;
+    amount: number;
+    status: string;
+    initiatedAt?: string;
+    processedAt?: string | null;
+    expectedBy?: string | null;
+  }>;
+}
+
+export interface OrderDepositSummary {
+  depositStatus: string;
+  inspectionStatus?: string | null;
+  depositAmount: number;
+  damageDeduction: number;
+  lateFee: number;
+  cleaningFee?: number;
+  totalDeduction?: number;
+  deductionReason?: string | null;
+  refundAmount: number;
+  refundStatus?: string | null;
+  refundMethod?: string;
+  expectedRefundWindow?: string;
+}
+
+export interface OrderReturnPickup {
+  shipmentId: string;
+  returnReference: string;
+  status: string;
+  pickupDate: string;
+  pickupWindow: string;
+  pickupScheduledAt: string;
+  pickedUpAt?: string | null;
+  completedAt?: string | null;
+  agentName?: string | null;
+}
+
+export interface ReturnScheduleResult {
+  status: string;
+  shipmentId: string;
+  returnReference: string;
+  pickupDate: string;
+  pickupWindow: string;
+  pickupScheduledAt: string;
+  alreadyScheduled: boolean;
+}
+
+export interface ShipmentTrackData {
+  shipmentId: string;
+  status: string;
+  trackingNumber: string;
+  pickupScheduledAt?: string | null;
+  pickupTimeSlot?: string | null;
+  agentName?: string | null;
+  agentPhone?: string | null;
+  events: Array<{
+    status: string;
+    label: string;
+    timestamp: string;
+    location?: string | null;
+  }>;
+}
 
 export interface TimelineEvent {
   status: string;
   label: string;
+  description?: string | null;
   timestamp: string | null;
   completed: boolean;
   current?: boolean;
   pending?: boolean;
+}
+
+export interface OrderCancellationInfo {
+  eligible: boolean;
+  policyLabel: string;
+}
+
+export interface OrderTrialSession {
+  startedAt: string;
+  expiresAt: string;
+  outcome: "PENDING" | "ACCEPTED" | "REJECTED" | "EXPIRED";
+  active: boolean;
+  expired: boolean;
+  acceptedAt?: string | null;
+  rejectedAt?: string | null;
+}
+
+export interface TrialRejectPreview {
+  policyCode: string;
+  policyLabel: string;
+  rentalPaid: number;
+  rentalRefundAmount: number;
+  deliveryFeeNonRefundable: number;
+  depositAmount: number;
+  depositRefundAmount: number;
+  depositRefundTiming: string;
+  refundMethod: string;
+  rentalRefundExpectedBusinessDays: number;
+  depositRefundExpectedBusinessDaysMin: number;
+  depositRefundExpectedBusinessDaysMax: number;
 }
 
 export interface Order {
@@ -108,11 +232,23 @@ export interface Order {
   rentalAmount: number;
   depositAmount: number;
   deliveryFee: number;
+  discountAmount?: number;
   totalPaid: number;
   currency: "INR";
+  paymentStatus?: string | null;
+  paymentPending?: boolean;
+  checkoutBatchId?: string | null;
+  paymentSummary?: OrderPaymentSummary | null;
+  refundDetails?: OrderRefundDetails | null;
+  depositSummary?: OrderDepositSummary | null;
+  invoiceAvailable?: boolean;
+  depositRefundExpectedBusinessDays?: number;
+  cancellation?: OrderCancellationInfo | null;
   deliveryAddress: Omit<Address, "id" | "label" | "isDefault" | "serviceable">;
   includesTrial: boolean;
   trialDurationMinutes: number;
+  trialSession?: OrderTrialSession | null;
+  returnPickup?: OrderReturnPickup | null;
   createdAt: string;
   timeline: TimelineEvent[];
 }
@@ -150,6 +286,8 @@ export interface Product {
   trending: boolean;
   minRentalDays?: number;
   maxRentalDays?: number | null;
+  /** Set when listing request includes rental dates. */
+  availableForDates?: boolean | null;
   createdAt: string;
 }
 
@@ -214,6 +352,9 @@ export interface SellerBooking {
   deliveryPincode: string | null;
   prepBy: string | null;
   notes: string | null;
+  acceptDeadlineAt?: string | null;
+  acceptanceExpired?: boolean;
+  refundExpectedBusinessDays?: number;
 }
 
 export interface SellerDashboard {
@@ -238,6 +379,8 @@ export interface WalletData {
   pendingBalance: number;
   totalEarned: number;
   totalWithdrawn: number;
+  minPayoutAmount?: number;
+  payoutProviderConfigured?: boolean;
   transactions: WalletTransaction[];
   payoutMethods: PayoutMethod[];
 }
@@ -256,6 +399,7 @@ export interface PayoutMethod {
   type: string;
   label: string;
   isDefault: boolean;
+  verified?: boolean;
 }
 
 export interface AvailabilityData {
@@ -307,6 +451,8 @@ export interface ProductListParams {
   limit?: number;
   pageToken?: string;
   q?: string;
+  startDate?: string;
+  endDate?: string;
 }
 
 export interface CheckoutSummary {

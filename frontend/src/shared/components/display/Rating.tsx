@@ -3,7 +3,7 @@ import { cn } from "@/lib/utils";
 export function Rating({ value, count }: { value: number; count?: number }) {
   return (
     <div className="flex items-center gap-1.5 text-sm">
-      <span className="text-accent">★</span>
+      <span className="text-champagne">★</span>
       <span className="font-medium">{value.toFixed(1)}</span>
       {count != null && <span className="text-muted-foreground">({count})</span>}
     </div>

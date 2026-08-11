@@ -8,26 +8,54 @@ import { useAuth } from "@/providers/AuthProvider";
 import { useBag } from "@/providers/BagProvider";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
+import { formatCurrency } from "@/lib/format";
 import { ROUTES } from "@/shared/constants/routes";
-import { toast } from "sonner";
+import { DESIGN_TOKENS } from "@/shared/constants/design-tokens";
 import { cn } from "@/lib/utils";
 import { ApiError } from "@/lib/api-client";
 import { useCheckoutParams } from "@/features/checkout/hooks/useCheckoutParams";
 import { CheckoutLayoutShell, CheckoutTwoColumn } from "@/features/checkout/components/CheckoutLayoutShell";
 import { PriceDetails } from "@/features/checkout/components/PriceDetails";
+import { HoldTimer } from "@/features/checkout/components/HoldTimer";
 import { calculateBagPricing, loadBagLines } from "@/features/checkout/utils/bag-pricing";
 import { earliestRentalStartDate, validateRentalDates } from "@/features/checkout/utils/rental-dates";
+import {
+  unavailableItems,
+  validateBagLinesAvailability,
+} from "@/features/checkout/utils/bag-availability";
 import { isCompleteBagItem } from "@/features/checkout/bag/bag-store";
 import { loadRazorpayScript, openRazorpayCheckout } from "@/features/checkout/lib/razorpay";
 import {
-  createRazorpayOrder,
-  prepareCheckoutBookings,
+  createBatchRazorpayOrder,
+  prepareCheckoutBatch,
   verifyRazorpayPayment,
 } from "@/features/checkout/services/payment.service";
+import { resetCheckoutAttemptId } from "@/features/checkout/lib/checkout-idempotency";
 
 const PAYMENT_METHODS = [
   { id: "razorpay", label: "Recommended", detail: "UPI, cards & net banking via Razorpay" },
 ] as const;
+
+function buildFailedUrl(
+  base: typeof ROUTES.checkout.failed,
+  params: {
+    reason: string;
+    detail?: string;
+    batchId?: string;
+    addressId?: string;
+    pincode?: string;
+    couponCode?: string;
+  },
+) {
+  const qs = new URLSearchParams();
+  qs.set("reason", params.reason);
+  if (params.detail) qs.set("detail", params.detail);
+  if (params.batchId) qs.set("batchId", params.batchId);
+  if (params.addressId) qs.set("addressId", params.addressId);
+  if (params.pincode) qs.set("pincode", params.pincode);
+  if (params.couponCode) qs.set("couponCode", params.couponCode);
+  return `${base}?${qs.toString()}`;
+}
 
 export default function CheckoutPaymentPage() {
   const router = useRouter();
@@ -36,6 +64,8 @@ export default function CheckoutPaymentPage() {
   const { addressId, pincode, fullQuery, couponCode } = useCheckoutParams();
   const [method, setMethod] = useState<(typeof PAYMENT_METHODS)[number]["id"]>("razorpay");
   const [processing, setProcessing] = useState(false);
+  const [holdExpiresAt, setHoldExpiresAt] = useState<string | null>(null);
+  const [holdExpired, setHoldExpired] = useState(false);
 
   const completeItems = bagItems.filter(isCompleteBagItem);
   const bagKey = JSON.stringify(completeItems);
@@ -54,106 +84,209 @@ export default function CheckoutPaymentPage() {
 
   const handlePay = async () => {
     if (!isAuthenticated) {
-      toast.error("Sign in to complete checkout.");
-      router.push(`${ROUTES.login}?returnUrl=${encodeURIComponent(window.location.pathname + window.location.search)}`);
+      router.push(
+        `${ROUTES.login}?returnUrl=${encodeURIComponent(window.location.pathname + window.location.search)}`,
+      );
       return;
     }
 
     if (!addressId) {
-      toast.error("Select a delivery address before paying.");
+      router.push(`${ROUTES.checkout.address}?${fullQuery()}`);
       return;
     }
 
     for (const item of completeItems) {
       const dateError = validateRentalDates(item.start, item.end);
       if (dateError) {
-        toast.error(dateError);
+        router.push(
+          buildFailedUrl(ROUTES.checkout.failed, {
+            reason: "AVAILABILITY_FAILED",
+            detail: dateError,
+            addressId,
+            pincode,
+            couponCode,
+          }),
+        );
         return;
       }
       if (item.start < earliestRentalStartDate()) {
-        toast.error(`Update bag dates — delivery must be on or after ${earliestRentalStartDate()}.`);
         router.push(ROUTES.checkout.bag);
         return;
       }
     }
 
+    if (holdExpired) {
+      resetCheckoutAttemptId();
+      router.push(
+        buildFailedUrl(ROUTES.checkout.failed, {
+          reason: "CHECKOUT_EXPIRED",
+          addressId,
+          pincode,
+          couponCode,
+        }),
+      );
+      return;
+    }
+
     setProcessing(true);
+    let batchId: string | undefined;
+
     try {
       const scriptLoaded = await loadRazorpayScript();
       if (!scriptLoaded) {
-        toast.error("Could not load Razorpay checkout. Check your connection and try again.");
+        router.push(
+          buildFailedUrl(ROUTES.checkout.failed, {
+            reason: "PAYMENT_FAILED",
+            detail: "Could not load Razorpay checkout.",
+            addressId,
+            pincode,
+            couponCode,
+          }),
+        );
         return;
       }
 
       const lines = await loadBagLines(completeItems);
       if (!lines.length) {
-        toast.error("Could not load bag items for checkout.");
+        router.push(ROUTES.checkout.bag);
         return;
       }
 
-      const bookings = await prepareCheckoutBookings(lines, addressId, couponCode || undefined);
-      let lastOrderNumber = "";
-
-      for (let i = 0; i < bookings.length; i++) {
-        const booking = bookings[i];
-        const order = await createRazorpayOrder({
-          bookingId: booking.bookingId,
-          checkoutSessionId: booking.checkoutSessionId,
-        });
-
-        const keyId =
-          order.keyId || process.env.NEXT_PUBLIC_RAZORPAY_KEY_ID || "";
-        if (!keyId) {
-          toast.error("Razorpay key is not configured.");
-          return;
-        }
-
-        const itemLabel =
-          bookings.length > 1 ? `Rental payment (${i + 1} of ${bookings.length})` : "Rental payment";
-
-        const paymentResponse = await openRazorpayCheckout({
-          key: keyId,
-          name: "Closiq",
-          description: itemLabel,
-          order_id: order.razorpayOrderId,
-          prefill: {
-            name: user?.displayName,
-            email: user?.email,
-            contact: user?.phone,
-          },
-          theme: { color: "#1a1a1a" },
-        });
-
-        const verified = await verifyRazorpayPayment({
-          paymentId: order.paymentId,
-          razorpayOrderId: paymentResponse.razorpay_order_id,
-          razorpayPaymentId: paymentResponse.razorpay_payment_id,
-          razorpaySignature: paymentResponse.razorpay_signature,
-        });
-
-        lastOrderNumber = verified.orderNumber || verified.rentalNumber;
+      const availability = await validateBagLinesAvailability(lines);
+      const blocked = unavailableItems(availability);
+      if (blocked.length > 0) {
+        router.push(
+          buildFailedUrl(ROUTES.checkout.failed, {
+            reason: "AVAILABILITY_FAILED",
+            detail: blocked.map((b) => b.productTitle).join(", "),
+            addressId,
+            pincode,
+            couponCode,
+          }),
+        );
+        return;
       }
 
-      toast.success("Payment successful");
+      const batch = await prepareCheckoutBatch(lines, addressId, couponCode || undefined);
+      batchId = batch.checkoutBatchId;
+      setHoldExpiresAt(batch.holdExpiresAt);
+
+      if (new Date(batch.holdExpiresAt).getTime() <= Date.now()) {
+        router.push(
+          buildFailedUrl(ROUTES.checkout.failed, {
+            reason: "CHECKOUT_EXPIRED",
+            batchId,
+            addressId,
+            pincode,
+            couponCode,
+          }),
+        );
+        return;
+      }
+
+      const order = await createBatchRazorpayOrder(batch.checkoutBatchId);
+
+      const keyId = order.keyId || process.env.NEXT_PUBLIC_RAZORPAY_KEY_ID || "";
+      if (!keyId) {
+        router.push(
+          buildFailedUrl(ROUTES.checkout.failed, {
+            reason: "PAYMENT_FAILED",
+            detail: "Razorpay is not configured.",
+            batchId,
+            addressId,
+            pincode,
+            couponCode,
+          }),
+        );
+        return;
+      }
+
+      const itemLabel =
+        (order.itemCount ?? lines.length) > 1
+          ? `Rental payment (${order.itemCount ?? lines.length} items)`
+          : "Rental payment";
+
+      const paymentResponse = await openRazorpayCheckout({
+        key: keyId,
+        name: "Closiq",
+        description: itemLabel,
+        order_id: order.razorpayOrderId,
+        prefill: {
+          name: user?.displayName,
+          email: user?.email,
+          contact: user?.phone,
+        },
+        theme: { color: DESIGN_TOKENS.navy },
+      });
+
+      const verified = await verifyRazorpayPayment({
+        paymentId: order.paymentId,
+        razorpayOrderId: paymentResponse.razorpay_order_id,
+        razorpayPaymentId: paymentResponse.razorpay_payment_id,
+        razorpaySignature: paymentResponse.razorpay_signature,
+      });
+
+      resetCheckoutAttemptId();
       router.push(
-        `${ROUTES.checkout.success}?order=${encodeURIComponent(lastOrderNumber)}`,
+        `${ROUTES.checkout.success}?order=${encodeURIComponent(verified.orderNumber || verified.rentalNumber)}`,
       );
     } catch (error) {
       if (error instanceof ApiError) {
         if (error.status === 403 || error.status === 401) {
-          toast.error("Session expired. Sign in again to continue checkout.");
-        } else if (error.status === 409) {
-          toast.error(error.message || "Selected dates are no longer available. Update your bag and try again.");
-        } else {
-          toast.error(error.message);
+          router.push(
+            `${ROUTES.login}?returnUrl=${encodeURIComponent(window.location.pathname + window.location.search)}`,
+          );
+          return;
         }
-      } else if (error instanceof Error && error.message === "Payment cancelled") {
-        toast.message("Payment cancelled");
-      } else if (error instanceof Error) {
-        toast.error(error.message || "Payment failed. Please try again.");
-      } else {
-        toast.error("Payment failed. Please try again.");
+        if (error.status === 409) {
+          router.push(
+            buildFailedUrl(ROUTES.checkout.failed, {
+              reason: error.message.toLowerCase().includes("expired")
+                ? "CHECKOUT_EXPIRED"
+                : "AVAILABILITY_FAILED",
+              detail: error.message,
+              batchId,
+              addressId,
+              pincode,
+              couponCode,
+            }),
+          );
+          return;
+        }
+        router.push(
+          buildFailedUrl(ROUTES.checkout.failed, {
+            reason: "PAYMENT_FAILED",
+            detail: error.message,
+            batchId,
+            addressId,
+            pincode,
+            couponCode,
+          }),
+        );
+        return;
       }
+      if (error instanceof Error && error.message === "Payment cancelled") {
+        router.push(
+          buildFailedUrl(ROUTES.checkout.failed, {
+            reason: "PAYMENT_CANCELLED",
+            batchId,
+            addressId,
+            pincode,
+            couponCode,
+          }),
+        );
+        return;
+      }
+      router.push(
+        buildFailedUrl(ROUTES.checkout.failed, {
+          reason: "PAYMENT_FAILED",
+          detail: error instanceof Error ? error.message : undefined,
+          batchId,
+          addressId,
+          pincode,
+          couponCode,
+        }),
+      );
     } finally {
       setProcessing(false);
     }
@@ -165,16 +298,27 @@ export default function CheckoutPaymentPage() {
         <p className="text-muted-foreground">
           {!completeItems.length
             ? "Your bag is empty. Select rental items before payment."
-            : "Select a delivery address before payment."}
+            : "Select a delivery address or pincode before payment."}
         </p>
         <Button asChild variant="outline" className="mt-4">
-          <Link href={!completeItems.length ? ROUTES.checkout.bag : `${ROUTES.checkout.address}?${fullQuery()}`}>
+          <Link
+            href={
+              !completeItems.length
+                ? ROUTES.checkout.bag
+                : `${ROUTES.checkout.address}?${fullQuery()}`
+            }
+          >
             {!completeItems.length ? "Back to bag" : "Back to address"}
           </Link>
         </Button>
       </CheckoutLayoutShell>
     );
   }
+
+  const payLabel =
+    pricing.data?.payNowAmount != null
+      ? `Pay ${formatCurrency(pricing.data.payNowAmount)}`
+      : "Pay now";
 
   return (
     <CheckoutLayoutShell step="payment" queryString={fullQuery()}>
@@ -185,8 +329,15 @@ export default function CheckoutPaymentPage() {
 
             <p className="text-sm text-muted-foreground">
               Paying for {completeItems.length}{" "}
-              {completeItems.length === 1 ? "rental" : "rentals"} in your bag.
+              {completeItems.length === 1 ? "rental" : "rentals"} in one checkout.
             </p>
+
+            {holdExpiresAt && (
+              <HoldTimer
+                expiresAt={holdExpiresAt}
+                onExpired={() => setHoldExpired(true)}
+              />
+            )}
 
             <div>
               <p className="label-caps text-muted-foreground">Choose payment mode</p>
@@ -219,35 +370,20 @@ export default function CheckoutPaymentPage() {
               <CardContent className="space-y-4 p-6">
                 <p className="label-caps text-muted-foreground">Payment details</p>
                 <p className="text-sm text-muted-foreground">
-                  Razorpay checkout opens for UPI, credit/debit cards, and net banking.
+                  One Razorpay checkout for all bag items. Your card or UPI is charged once for the combined total.
                 </p>
-                {process.env.NODE_ENV === "development" && (
-                  <div className="rounded-sm border border-border bg-muted/30 p-3 text-xs text-muted-foreground">
-                    <p className="font-medium text-foreground">Razorpay sandbox — use these if cards fail</p>
-                    <p className="mt-2">
-                      The Visa test card is sometimes flagged as international on test accounts. If you see
-                      &quot;International cards are not supported&quot;, use one of these instead:
-                    </p>
-                    <ul className="mt-2 list-inside list-disc space-y-1">
-                      <li>
-                        <strong>Netbanking (most reliable):</strong> pick any bank → click{" "}
-                        <strong>Success</strong> on the mock page
-                      </li>
-                      <li>
-                        <strong>UPI:</strong> <code className="text-foreground">success@razorpay</code>
-                      </li>
-                      <li>
-                        <strong>Mastercard (domestic):</strong> 5267 3181 8797 5449 · CVV 123 · 12/26
-                      </li>
-                      <li>
-                        <strong>Visa (domestic):</strong> 4111 1111 1111 1111 · CVV 123 · 12/26 — then click{" "}
-                        <strong>Success</strong> on the mock page if shown
-                      </li>
-                    </ul>
-                  </div>
+                {!isAuthenticated && (
+                  <p className="text-sm text-muted-foreground">
+                    Sign in when you continue — your bag and checkout details are preserved.
+                  </p>
                 )}
-                <Button variant="gold" size="lg" onClick={handlePay} disabled={processing || !addressId}>
-                  {processing ? "Processing…" : "Pay now"}
+                <Button
+                  variant="rent"
+                  size="lg"
+                  onClick={handlePay}
+                  disabled={processing || holdExpired || (!isAuthenticated ? false : !addressId)}
+                >
+                  {processing ? "Processing…" : isAuthenticated ? payLabel : "Sign in to pay"}
                 </Button>
               </CardContent>
             </Card>

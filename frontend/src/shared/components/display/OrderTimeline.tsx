@@ -13,6 +13,9 @@ export function OrderTimeline({ events }: { events: TimelineEvent[] }) {
             )}
           />
           <p className={cn("text-sm font-medium", event.current && "text-accent")}>{event.label}</p>
+          {event.description && (
+            <p className="mt-0.5 text-xs text-muted-foreground">{event.description}</p>
+          )}
           {event.timestamp && (
             <p className="mt-1 text-xs text-muted-foreground">
               {new Date(event.timestamp).toLocaleString("en-IN", {

@@ -41,7 +41,7 @@ export function RentalDateFields({
             value={start}
             onChange={(e) => onStartChange(e.target.value)}
             className={cn(
-              "h-11 w-full rounded-sm border bg-background px-3 text-sm",
+              "h-11 w-full rounded-sm border bg-card px-3 text-sm text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-background",
               error && !start ? "border-destructive" : "border-border",
             )}
           />
@@ -57,7 +57,7 @@ export function RentalDateFields({
             value={end}
             onChange={(e) => onEndChange(e.target.value)}
             className={cn(
-              "h-11 w-full rounded-sm border bg-background px-3 text-sm",
+              "h-11 w-full rounded-sm border bg-card px-3 text-sm text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-background",
               error && !end ? "border-destructive" : "border-border",
             )}
           />

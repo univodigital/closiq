@@ -1,6 +1,7 @@
 "use client";
 
 import { useState } from "react";
+import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { Container, PageHeader } from "@/shared/components/layout/Container";
 import { Input } from "@/components/ui/input";
@@ -14,7 +15,6 @@ export default function ProfileEditPage() {
   const { user, refreshUser } = useAuth();
   const [firstName, setFirstName] = useState(user?.firstName ?? "");
   const [lastName, setLastName] = useState(user?.lastName ?? "");
-  const [email, setEmail] = useState(user?.email ?? "");
   const [alternatePhone, setAlternatePhone] = useState(user?.alternatePhone ?? "");
   const [alternateEmail, setAlternateEmail] = useState(user?.alternateEmail ?? "");
   const [error, setError] = useState<string | null>(null);
@@ -28,7 +28,6 @@ export default function ProfileEditPage() {
       await updateProfile({
         firstName: firstName.trim(),
         lastName: lastName.trim(),
-        email: email.trim() || undefined,
         alternatePhone: alternatePhone.trim(),
         alternateEmail: alternateEmail.trim(),
       });
@@ -47,20 +46,20 @@ export default function ProfileEditPage() {
       <form onSubmit={handleSubmit} className="space-y-4">
         <div>
           <label className="label-caps mb-2 block text-muted-foreground">First name</label>
-          <Input required value={firstName} onChange={(e) => setFirstName(e.target.value)} />
+          <Input required value={firstName} placeholder="First name" onChange={(e) => setFirstName(e.target.value)} />
         </div>
         <div>
           <label className="label-caps mb-2 block text-muted-foreground">Last name</label>
-          <Input required value={lastName} onChange={(e) => setLastName(e.target.value)} />
+          <Input required value={lastName} placeholder="Last name" onChange={(e) => setLastName(e.target.value)} />
         </div>
-        <div>
-          <label className="label-caps mb-2 block text-muted-foreground">Email</label>
-          <Input value={email} type="email" onChange={(e) => setEmail(e.target.value)} />
-        </div>
-        <div>
-          <label className="label-caps mb-2 block text-muted-foreground">Contact number</label>
-          <Input value={user?.phone ?? ""} disabled readOnly />
-          <p className="mt-1 text-xs text-muted-foreground">Primary number cannot be changed here.</p>
+        <div className="rounded-sm border border-border p-4 text-sm">
+          <p className="font-medium">Phone, email, password & username</p>
+          <p className="mt-1 text-muted-foreground">
+            Update your contact details, avatar, and security settings on the security page.
+          </p>
+          <Button asChild variant="outline" size="sm" className="mt-3">
+            <Link href={ROUTES.account.security}>Open security settings</Link>
+          </Button>
         </div>
         <div>
           <label className="label-caps mb-2 block text-muted-foreground">Alternate number</label>
@@ -68,6 +67,7 @@ export default function ProfileEditPage() {
             value={alternatePhone}
             type="tel"
             inputMode="tel"
+            placeholder="Alternate number"
             onChange={(e) => setAlternatePhone(e.target.value)}
           />
         </div>
@@ -76,6 +76,7 @@ export default function ProfileEditPage() {
           <Input
             value={alternateEmail}
             type="email"
+            placeholder="Alternate email"
             onChange={(e) => setAlternateEmail(e.target.value)}
           />
         </div>

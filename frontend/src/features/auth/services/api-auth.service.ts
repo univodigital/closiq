@@ -3,11 +3,18 @@ import { mapSellerProfile, type RawSellerProfile } from "@/lib/api-mappers";
 import { setAccessToken } from "@/lib/auth-token";
 import type { User } from "@/shared/types";
 import type { Gender } from "@/shared/types";
-import type { AuthService, RegistrationProfile } from "./auth.service";
+import type {
+  AuthService,
+  OtpInitiateResult,
+  RegistrationProfile,
+  VerifyOtpResult,
+} from "./auth.service";
 
 interface OtpInitiateResponse {
   otpSessionId: string;
+  phone?: string;
   expiresInSeconds: number;
+  resendAvailableInSeconds: number;
 }
 
 interface UserSummaryResponse {
@@ -29,11 +36,23 @@ interface UserSummaryResponse {
   sellerProfile?: RawSellerProfile;
 }
 
+interface VerifyOtpResponse {
+  existingAccount?: boolean;
+  requiresProfile?: boolean;
+  phone?: string;
+  accessToken?: string;
+  expiresIn?: number;
+  tokenType?: string;
+  user?: UserSummaryResponse;
+  isNewUser?: boolean;
+}
+
 interface AuthTokenResponse {
   accessToken: string;
   expiresIn: number;
   tokenType: string;
   user: UserSummaryResponse;
+  isNewUser?: boolean;
 }
 
 function mapUser(raw: UserSummaryResponse): User {
@@ -56,8 +75,29 @@ function mapUser(raw: UserSummaryResponse): User {
   };
 }
 
+function mapOtpInitiate(data: OtpInitiateResponse): OtpInitiateResult {
+  return {
+    otpSessionId: data.otpSessionId,
+    phone: data.phone,
+    expiresInSeconds: data.expiresInSeconds,
+    resendAvailableInSeconds: data.resendAvailableInSeconds,
+  };
+}
+
 function storeAuthToken(data: AuthTokenResponse) {
   setAccessToken(data.accessToken);
+}
+
+function mapVerifyResult(data: VerifyOtpResponse): VerifyOtpResult {
+  if (data.accessToken) {
+    setAccessToken(data.accessToken);
+  }
+  return {
+    existingAccount: data.existingAccount,
+    requiresProfile: data.requiresProfile,
+    phone: data.phone,
+    authenticated: Boolean(data.accessToken),
+  };
 }
 
 export class ApiAuthService implements AuthService {
@@ -70,7 +110,7 @@ export class ApiAuthService implements AuthService {
         email: email?.trim().toLowerCase(),
       }),
     });
-    return { otpSessionId: data.otpSessionId, expiresInSeconds: data.expiresInSeconds };
+    return mapOtpInitiate(data);
   }
 
   async login(identifier: string) {
@@ -78,7 +118,7 @@ export class ApiAuthService implements AuthService {
       method: "POST",
       body: JSON.stringify({ identifier }),
     });
-    return { otpSessionId: data.otpSessionId, expiresInSeconds: data.expiresInSeconds };
+    return mapOtpInitiate(data);
   }
 
   async loginWithPassword(identifier: string, password: string) {
@@ -89,26 +129,57 @@ export class ApiAuthService implements AuthService {
     storeAuthToken(data);
   }
 
-  async verifyOtp(otpSessionId: string, otp: string, profile?: RegistrationProfile) {
-    const data = await apiFetch<AuthTokenResponse>("/auth/verify-otp", {
+  async verifyRegistrationOtp(otpSessionId: string, otp: string) {
+    const data = await apiFetch<VerifyOtpResponse>("/auth/verify-otp", {
       method: "POST",
       body: JSON.stringify({
         otpSessionId,
         otp,
-        purpose: profile ? "REGISTER" : "LOGIN",
-        profile: profile
-          ? {
-              username: profile.username,
-              password: profile.password,
-              email: profile.email,
-              firstName: profile.firstName,
-              lastName: profile.lastName,
-              gender: profile.gender,
-            }
-          : undefined,
+        purpose: "REGISTER",
+      }),
+    });
+    return mapVerifyResult(data);
+  }
+
+  async verifyLoginOtp(otpSessionId: string, otp: string) {
+    const data = await apiFetch<VerifyOtpResponse>("/auth/verify-otp", {
+      method: "POST",
+      body: JSON.stringify({
+        otpSessionId,
+        otp,
+        purpose: "LOGIN",
+      }),
+    });
+    if (!data.accessToken) {
+      throw new Error("Authentication failed");
+    }
+    setAccessToken(data.accessToken);
+  }
+
+  async completeRegistration(otpSessionId: string, profile: RegistrationProfile) {
+    const data = await apiFetch<AuthTokenResponse>("/auth/complete-registration", {
+      method: "POST",
+      body: JSON.stringify({
+        otpSessionId,
+        profile: {
+          username: profile.username,
+          password: profile.password,
+          email: profile.email,
+          firstName: profile.firstName,
+          lastName: profile.lastName,
+          gender: profile.gender,
+        },
       }),
     });
     storeAuthToken(data);
+  }
+
+  async resendOtp(otpSessionId: string) {
+    const data = await apiFetch<OtpInitiateResponse>("/auth/resend-otp", {
+      method: "POST",
+      body: JSON.stringify({ otpSessionId }),
+    });
+    return mapOtpInitiate(data);
   }
 
   async forgotPassword(identifier: string) {
@@ -116,7 +187,7 @@ export class ApiAuthService implements AuthService {
       method: "POST",
       body: JSON.stringify({ identifier }),
     });
-    return { otpSessionId: data.otpSessionId, expiresInSeconds: data.expiresInSeconds };
+    return mapOtpInitiate(data);
   }
 
   async resetPassword(otpSessionId: string, otp: string, newPassword: string) {

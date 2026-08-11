@@ -4,6 +4,7 @@ import type { CheckoutSummary } from "@/shared/types";
 import {
   mapSellerAnalytics,
   mapSellerBooking,
+  mapSellerBookingDetail,
   mapSellerBusinessProfile,
   mapSellerDashboard,
   mapSellerInventoryBlock,
@@ -23,6 +24,7 @@ import type {
   SellerInventoryBlock,
   SellerListing,
   SellerListingDetail,
+  SellerBookingDetail,
 } from "../types";
 import type { CheckoutService, NotificationService } from "./buyer-aux.service";
 import type { CreateSellerProductInput, PresignedUploadData, ProductImageAttachData, SellerService } from "./seller.service";
@@ -53,12 +55,19 @@ class ApiSellerService implements SellerService {
     const res = await apiFetchEnvelope<unknown>(`/seller/bookings/${encodeURIComponent(id)}`);
     return {
       ...res,
-      data: mapSellerBooking(res.data as Parameters<typeof mapSellerBooking>[0]),
-    } satisfies ApiResponse<SellerBooking>;
+      data: mapSellerBookingDetail(res.data as Parameters<typeof mapSellerBookingDetail>[0]),
+    } satisfies ApiResponse<SellerBookingDetail>;
   }
 
-  async listProducts() {
-    const res = await apiFetchEnvelope<unknown[]>("/seller/products");
+  async listProducts(params?: { status?: string }) {
+    const search = new URLSearchParams();
+    if (params?.status) {
+      search.set("status", params.status);
+    }
+    const query = search.toString();
+    const res = await apiFetchEnvelope<unknown[]>(
+      `/seller/products${query ? `?${query}` : ""}`,
+    );
     return {
       ...res,
       data: res.data.map((item) => mapSellerListing(item as Parameters<typeof mapSellerListing>[0])),
@@ -192,6 +201,26 @@ class ApiCheckoutService implements CheckoutService {
         variantId: input.variantId,
         rentalStartDate: input.rentalStartDate,
         rentalEndDate: input.rentalEndDate,
+        pincode: input.pincode || undefined,
+        couponCode: input.couponCode || undefined,
+      }),
+    });
+  }
+
+  async calculateBatch(input: {
+    items: Array<{
+      productId: string;
+      variantId: string;
+      rentalStartDate: string;
+      rentalEndDate: string;
+    }>;
+    pincode?: string;
+    couponCode?: string;
+  }) {
+    return apiFetchEnvelope<CheckoutSummary>("/checkout/calculate-batch", {
+      method: "POST",
+      body: JSON.stringify({
+        items: input.items,
         pincode: input.pincode || undefined,
         couponCode: input.couponCode || undefined,
       }),

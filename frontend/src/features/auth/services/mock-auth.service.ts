@@ -1,12 +1,13 @@
 import userProfile from "@/mocks/data/user-profile.json";
 import { delay } from "@/mocks/utils/delay";
-import type { AuthService, RegistrationProfile } from "./auth.service";
+import type { AuthService, OtpInitiateResult, RegistrationProfile, VerifyOtpResult } from "./auth.service";
 import type { User, Gender } from "@/shared/types";
 
 const MOCK_OTP = "123456";
 const MOCK_PASSWORD = "Password1";
 let sessionActive = false;
 let currentUser: User | null = null;
+let registrationVerified = false;
 
 function mapUser(raw: typeof userProfile): User {
   return {
@@ -22,15 +23,25 @@ function mapUser(raw: typeof userProfile): User {
   };
 }
 
+function otpResult(otpSessionId: string, phone?: string): OtpInitiateResult {
+  return {
+    otpSessionId,
+    phone,
+    expiresInSeconds: 300,
+    resendAvailableInSeconds: 60,
+  };
+}
+
 export class MockAuthService implements AuthService {
   async register(phone: string, _acceptTerms = true, _email?: string) {
     await delay(600);
-    return { otpSessionId: `otp_${phone}`, expiresInSeconds: 300 };
+    registrationVerified = false;
+    return otpResult(`otp_${phone}`, phone);
   }
 
   async login(phone: string) {
     await delay(600);
-    return { otpSessionId: `otp_${phone}`, expiresInSeconds: 300 };
+    return otpResult(`otp_${phone}`, phone);
   }
 
   async loginWithPassword(_identifier: string, password: string) {
@@ -42,29 +53,53 @@ export class MockAuthService implements AuthService {
     currentUser = mapUser(userProfile);
   }
 
-  async verifyOtp(_otpSessionId: string, otp: string, profile?: RegistrationProfile) {
+  async verifyRegistrationOtp(_otpSessionId: string, otp: string): Promise<VerifyOtpResult> {
+    await delay(400);
+    if (otp !== MOCK_OTP) {
+      throw new Error("Invalid OTP. Use 123456 for mock login.");
+    }
+    if (_otpSessionId.includes("existing")) {
+      return { existingAccount: true, phone: "+919876543210", authenticated: false };
+    }
+    registrationVerified = true;
+    return { requiresProfile: true, phone: "+919876543210", authenticated: false };
+  }
+
+  async verifyLoginOtp(_otpSessionId: string, otp: string) {
     await delay(400);
     if (otp !== MOCK_OTP) {
       throw new Error("Invalid OTP. Use 123456 for mock login.");
     }
     sessionActive = true;
+    currentUser = mapUser(userProfile);
+  }
+
+  async completeRegistration(_otpSessionId: string, profile: RegistrationProfile) {
+    await delay(400);
+    if (!registrationVerified) {
+      throw new Error("Verify OTP before completing registration");
+    }
+    sessionActive = true;
     const base = mapUser(userProfile);
-    currentUser = profile
-      ? {
-          ...base,
-          firstName: profile.firstName,
-          lastName: profile.lastName,
-          gender: profile.gender,
-          displayName: `${profile.firstName} ${profile.lastName.charAt(0)}.`,
-          roles: ["CUSTOMER"],
-          sellerProfile: undefined,
-        }
-      : base;
+    currentUser = {
+      ...base,
+      firstName: profile.firstName,
+      lastName: profile.lastName,
+      gender: profile.gender,
+      displayName: `${profile.firstName} ${profile.lastName.charAt(0)}.`,
+      roles: ["CUSTOMER"],
+      sellerProfile: undefined,
+    };
+  }
+
+  async resendOtp(otpSessionId: string) {
+    await delay(300);
+    return otpResult(otpSessionId);
   }
 
   async forgotPassword(phone: string) {
     await delay(600);
-    return { otpSessionId: `reset_${phone}`, expiresInSeconds: 300 };
+    return otpResult(`reset_${phone}`);
   }
 
   async resetPassword(_otpSessionId: string, otp: string, newPassword: string) {
@@ -83,6 +118,7 @@ export class MockAuthService implements AuthService {
     await delay(200);
     sessionActive = false;
     currentUser = null;
+    registrationVerified = false;
   }
 
   async getCurrentUser() {

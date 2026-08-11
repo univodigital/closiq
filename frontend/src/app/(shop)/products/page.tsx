@@ -2,26 +2,41 @@
 
 import { useQuery } from "@tanstack/react-query";
 import { productService } from "@/features/products/services";
+import { useListingParams } from "@/features/products/hooks/useListingParams";
+import { ListingDateBar } from "@/features/products/components/ListingDateBar";
 import { WishlistProductCard } from "@/features/wishlist/components/WishlistProductCard";
 import { Container, PageHeader } from "@/shared/components/layout/Container";
 import { ProductCardSkeleton } from "@/components/ui/skeleton";
 import { ErrorState } from "@/shared/components/feedback/EmptyState";
 
+const LISTING_STALE_MS = 60_000;
+
 export default function ProductsPage() {
+  const listingParams = useListingParams({ sort: "createdAt:desc" });
+
   const { data, isLoading, isError, refetch } = useQuery({
-    queryKey: ["products"],
-    queryFn: () => productService.listProducts({ sort: "createdAt:desc" }),
+    queryKey: ["products", listingParams],
+    queryFn: () => productService.listProducts(listingParams),
+    staleTime: LISTING_STALE_MS,
+    refetchOnWindowFocus: true,
   });
+
+  function scrollToDateBar() {
+    document.getElementById("listing-date-bar")?.scrollIntoView({ behavior: "smooth", block: "center" });
+  }
 
   if (isError) return <ErrorState onRetry={() => refetch()} />;
 
   return (
     <Container className="py-10 md:py-14">
       <PageHeader title="All pieces" description="Premium rentals with 15-minute home trial included." />
+      <ListingDateBar className="mb-8 max-w-md rounded-sm border border-border p-4" />
       <div className="grid grid-cols-2 gap-5 md:grid-cols-3 lg:grid-cols-4 md:gap-7">
         {isLoading
           ? Array.from({ length: 8 }).map((_, i) => <ProductCardSkeleton key={i} />)
-          : data?.data.map((p) => <WishlistProductCard key={p.id} product={p} />)}
+          : data?.data.map((p) => (
+              <WishlistProductCard key={p.id} product={p} onChangeDates={scrollToDateBar} />
+            ))}
       </div>
     </Container>
   );

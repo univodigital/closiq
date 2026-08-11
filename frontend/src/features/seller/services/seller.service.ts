@@ -10,6 +10,7 @@ import type {
   SellerInventoryBlock,
   SellerListing,
   SellerListingDetail,
+  SellerBookingDetail,
 } from "../types";
 
 export interface CreateSellerProductInput {
@@ -46,8 +47,8 @@ export interface SellerService {
   getProfile(): Promise<SellerBusinessProfile>;
   getDashboard(): Promise<ApiResponse<SellerDashboard>>;
   listBookings(): Promise<ApiResponse<SellerBooking[]>>;
-  getBooking(id: string): Promise<ApiResponse<SellerBooking>>;
-  listProducts(): Promise<ApiResponse<SellerListing[]>>;
+  getBooking(id: string): Promise<ApiResponse<SellerBookingDetail>>;
+  listProducts(params?: { status?: string }): Promise<ApiResponse<SellerListing[]>>;
   getProduct(id: string): Promise<ApiResponse<SellerListingDetail>>;
   createProduct(input: CreateSellerProductInput): Promise<ApiResponse<SellerListing>>;
   requestProductImageUpload(

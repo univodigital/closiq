@@ -95,7 +95,7 @@ export function AddressForm({
           type="tel"
           inputMode="tel"
           autoComplete="tel"
-          placeholder="10-digit mobile number"
+          placeholder="Mobile number"
           pattern="\+?[0-9]{10,15}"
           value={values.phone}
           onChange={(e) => setValues((v) => ({ ...v, phone: e.target.value.replace(/[^\d+]/g, "") }))}

@@ -27,10 +27,17 @@ export interface SellerListingVariant {
   availableQuantity: number;
 }
 
+export interface SellerListingImage {
+  id: string;
+  url: string;
+  sortOrder: number;
+}
+
 export interface SellerListingDetail extends SellerListing {
   description: string;
   city: string;
   imageUrls: string[];
+  images: SellerListingImage[];
   variants: SellerListingVariant[];
   categoryId: string | null;
   occasion: string | null;
@@ -51,4 +58,58 @@ export interface SellerInventoryBlock {
   endDate: string;
   reason: string | null;
   status: string;
+}
+
+export interface SellerRejectReasonOption {
+  code: string;
+  label: string;
+  requiresComment: boolean;
+}
+
+export interface SellerRejectPreview {
+  refundAmount: number;
+  expectedBusinessDays: number;
+  refundMethod: string;
+  currency: string;
+}
+
+export interface SellerBookingDetail {
+  id: string;
+  rentalNumber: string;
+  orderNumber: string;
+  status: string;
+  productId: string;
+  productTitle: string;
+  productImage: string;
+  variantSize: string;
+  rentalStart: string;
+  rentalEnd: string;
+  rentalDays: number;
+  currency: string;
+  earnings: {
+    rentalAmount: number;
+    commission: number;
+    netEarnings: number;
+    depositHeld: number;
+    creditedToWallet: boolean;
+  };
+  customer: {
+    name: string | null;
+    phoneMasked: string | null;
+    deliveryPincode: string | null;
+    deliveryCity: string | null;
+  };
+  prepBy: string | null;
+  notes: string | null;
+  customerNotes: string | null;
+  prepChecklist: Array<{ item: string; done: boolean }>;
+  acceptDeadlineAt: string | null;
+  acceptanceExpired: boolean;
+  canAccept: boolean;
+  canReject: boolean;
+  canMarkReady: boolean;
+  acceptSlaHours: number;
+  refundExpectedBusinessDays: number;
+  rejectReasons: SellerRejectReasonOption[];
+  rejectPreview: SellerRejectPreview | null;
 }
