@@ -36,6 +36,9 @@ public class Payment {
     @Column(name = "checkout_session_id")
     private UUID checkoutSessionId;
 
+    @Column(name = "checkout_batch_id")
+    private UUID checkoutBatchId;
+
     @Column(name = "provider_code", nullable = false, length = 20)
     private String providerCode;
 

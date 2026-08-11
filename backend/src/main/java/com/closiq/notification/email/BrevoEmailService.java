@@ -98,6 +98,30 @@ public class BrevoEmailService implements EmailService {
         sendOtp(toEmail, otp, "RESET");
     }
 
+    @Override
+    public void sendOrderConfirmed(String toEmail, TransactionalEmailContext context) {
+        sendHtml(
+                toEmail,
+                "Order confirmed — " + context.orderLabel(),
+                TransactionalEmailTemplates.orderConfirmed(context));
+    }
+
+    @Override
+    public void sendOutForDelivery(String toEmail, TransactionalEmailContext context) {
+        sendHtml(
+                toEmail,
+                "Your Closiq order is out for delivery",
+                TransactionalEmailTemplates.outForDelivery(context));
+    }
+
+    @Override
+    public void sendReturnReminder(String toEmail, TransactionalEmailContext context) {
+        sendHtml(
+                toEmail,
+                "Your Closiq rental ends soon",
+                TransactionalEmailTemplates.returnReminder(context));
+    }
+
     private void sendHtml(String toEmail, String subject, String htmlBody) {
         if (brevoProperties.getApiKey() == null || brevoProperties.getApiKey().isBlank()) {
             log.warn("Failed to send email to {}: Brevo API key not configured", maskEmail(toEmail));

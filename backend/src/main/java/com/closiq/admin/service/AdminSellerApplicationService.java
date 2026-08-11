@@ -98,7 +98,7 @@ public class AdminSellerApplicationService {
         SellerApplication application = requireReviewableApplication(applicationId);
 
         application.setStatus(ApplicationStatus.REJECTED);
-        application.setRejectionReason(request.getReason());
+        application.setRejectionReason(request.getReason().trim());
         application.setReviewedAt(Instant.now());
         application.setUpdatedBy(adminId);
         applicationRepository.save(application);
@@ -132,6 +132,8 @@ public class AdminSellerApplicationService {
                 .city(application.getCity())
                 .status(application.getStatus().name())
                 .submittedAt(application.getSubmittedAt())
+                .reviewedAt(application.getReviewedAt())
+                .rejectionReason(application.getRejectionReason())
                 .build();
     }
 }

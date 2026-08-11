@@ -5,7 +5,9 @@ import com.closiq.booking.domain.BookingItem;
 import com.closiq.booking.domain.BookingStatus;
 import com.closiq.booking.repository.BookingItemRepository;
 import com.closiq.booking.repository.BookingRepository;
+import com.closiq.booking.service.BookingStatusTransitions;
 import com.closiq.booking.service.BookingTimelineService;
+import com.closiq.booking.service.DepositRefundService;
 import com.closiq.common.exception.ErrorCode;
 import com.closiq.common.exception.ClosiqException;
 import com.closiq.common.util.IdGenerator;
@@ -15,18 +17,17 @@ import com.closiq.config.ClosiqProperties;
 import com.closiq.identity.domain.UserProfile;
 import com.closiq.identity.repository.UserProfileRepository;
 import com.closiq.inventory.service.InventoryHoldService;
-import com.closiq.payment.domain.Payment;
-import com.closiq.payment.domain.PaymentStatus;
-import com.closiq.payment.domain.Refund;
 import com.closiq.payment.repository.PaymentRepository;
-import com.closiq.payment.repository.RefundRepository;
+import com.closiq.payment.service.RefundService;
 import com.closiq.seller.domain.SellerRejectReason;
 import com.closiq.seller.mapper.SellerBookingMapper;
 import com.closiq.seller.web.dto.AcceptSellerBookingRequest;
+import com.closiq.seller.web.dto.ReleaseDepositRequest;
 import com.closiq.seller.web.dto.RejectSellerBookingRequest;
 import com.closiq.seller.web.dto.SellerBookingDetailResponse;
 import com.closiq.seller.web.dto.SellerBookingHistoryResponse;
 import com.closiq.seller.web.dto.SellerBookingListItemResponse;
+import com.closiq.seller.web.dto.SellerRejectPreviewResponse;
 import com.closiq.shipment.service.ShipmentAccessService;
 import com.closiq.user.domain.Address;
 import com.closiq.user.domain.SellerProfile;
@@ -41,7 +42,6 @@ import org.springframework.transaction.annotation.Transactional;
 
 import java.time.Instant;
 import java.time.LocalDate;
-import java.time.temporal.ChronoUnit;
 import java.util.List;
 import java.util.Locale;
 import java.util.Map;
@@ -77,9 +77,11 @@ public class SellerBookingService {
     private final AddressRepository addressRepository;
     private final UserProfileRepository userProfileRepository;
     private final PaymentRepository paymentRepository;
-    private final RefundRepository refundRepository;
+    private final RefundService refundService;
+    private final DepositRefundService depositRefundService;
     private final InventoryHoldService inventoryHoldService;
     private final SellerBookingMapper sellerBookingMapper;
+    private final SellerAcceptanceService acceptanceService;
     private final ClosiqProperties properties;
 
     @Transactional(readOnly = true)
@@ -125,7 +127,19 @@ public class SellerBookingService {
                 : null;
         UserProfile customer = userProfileRepository.findByUserId(booking.getCustomerId()).orElse(null);
 
-        return sellerBookingMapper.toDetail(booking, item, address, customer, isCustomerVisible(booking), commissionRate());
+        return sellerBookingMapper.toDetail(
+                booking, item, address, customer, isCustomerVisible(booking), commissionRate(), refundBusinessDays());
+    }
+
+    @Transactional(readOnly = true)
+    public SellerRejectPreviewResponse getRejectPreview(UUID userId, String bookingIdOrNumber) {
+        SellerProfile seller = sellerContextService.requireVerifiedSeller(userId);
+        Booking booking = shipmentAccessService.resolveSellerBooking(userId, bookingIdOrNumber);
+        if (!seller.getId().equals(booking.getSellerProfileId())) {
+            throw new ClosiqException(ErrorCode.FORBIDDEN);
+        }
+        acceptanceService.assertAcceptanceOpen(booking);
+        return sellerBookingMapper.buildRejectPreview(booking, refundBusinessDays());
     }
 
     @Transactional
@@ -137,13 +151,8 @@ public class SellerBookingService {
             throw new ClosiqException(ErrorCode.INVALID_STATE_TRANSITION);
         }
 
-        if (booking.getConfirmedAt() != null) {
-            Instant deadline = booking.getConfirmedAt()
-                    .plus(properties.getBooking().getSellerAcceptSlaHours(), ChronoUnit.HOURS);
-            if (Instant.now().isAfter(deadline)) {
-                throw new ClosiqException(ErrorCode.INVALID_STATE_TRANSITION, "Acceptance window has expired");
-            }
-        }
+        acceptanceService.assertAcceptanceOpen(booking);
+        BookingStatusTransitions.assertTransition(booking.getStatus(), BookingStatus.SELLER_ACCEPTED);
 
         Instant now = Instant.now();
         booking.setStatus(BookingStatus.SELLER_ACCEPTED);
@@ -166,13 +175,11 @@ public class SellerBookingService {
 
     @Transactional
     public Map<String, Object> rejectBooking(UUID userId, String bookingIdOrNumber, RejectSellerBookingRequest request) {
-        validateRejectReason(request.getReason());
+        validateRejectReason(request.getReason(), request.getComment());
 
         Booking booking = shipmentAccessService.resolveSellerBooking(userId, bookingIdOrNumber);
 
-        if (!BookingStatus.CONFIRMED.equals(booking.getStatus())) {
-            throw new ClosiqException(ErrorCode.INVALID_STATE_TRANSITION);
-        }
+        acceptanceService.assertAcceptanceOpen(booking);
 
         Instant now = Instant.now();
         booking.setStatus(BookingStatus.CANCELLED);
@@ -182,7 +189,12 @@ public class SellerBookingService {
         bookingRepository.save(booking);
 
         inventoryHoldService.releaseByBookingId(booking.getId(), InventoryHoldService.RELEASED);
-        initiateFullRefund(booking, userId, request.getReason());
+        refundService.initiateBookingRefund(
+                booking,
+                RefundService.TYPE_FULL,
+                userId,
+                request.getReason(),
+                "seller-reject-" + booking.getId());
 
         timelineService.append(
                 booking.getId(),
@@ -221,7 +233,7 @@ public class SellerBookingService {
                             : null;
                     UserProfile customer = userProfileRepository.findByUserId(booking.getCustomerId()).orElse(null);
                     return sellerBookingMapper.toListItem(
-                            booking, item, address, customer, true, commissionRate());
+                            booking, item, address, customer, true, commissionRate(), refundBusinessDays());
                 })
                 .toList();
 
@@ -242,22 +254,30 @@ public class SellerBookingService {
                 .build();
     }
 
-    private void initiateFullRefund(Booking booking, UUID initiatedBy, String reason) {
-        paymentRepository.findByBookingIdAndStatus(booking.getId(), PaymentStatus.CAPTURED).ifPresent(payment -> {
-            Refund rentalRefund = Refund.builder()
-                    .id(IdGenerator.uuidV7())
-                    .paymentId(payment.getId())
-                    .bookingId(booking.getId())
-                    .initiatedBy(initiatedBy)
-                    .refundType("FULL")
-                    .amount(payment.getAmount())
-                    .status("PENDING")
-                    .reason(reason)
-                    .initiatedAt(Instant.now())
-                    .expectedBy(Instant.now().plus(5, ChronoUnit.DAYS))
-                    .build();
-            refundRepository.save(rentalRefund);
-        });
+    @Transactional
+    public Map<String, Object> releaseDeposit(
+            UUID userId, String bookingIdOrNumber, String idempotencyKey, ReleaseDepositRequest body) {
+        Booking booking = shipmentAccessService.resolveSellerBooking(userId, bookingIdOrNumber);
+        if (!sellerContextService.requireVerifiedSeller(userId).getId().equals(booking.getSellerProfileId())) {
+            throw new ClosiqException(ErrorCode.FORBIDDEN);
+        }
+
+        long damage = body != null && body.getDamageDeduction() != null ? body.getDamageDeduction() : 0L;
+        long late = body != null && body.getLateFee() != null ? body.getLateFee() : 0L;
+        long cleaning = body != null && body.getCleaningFee() != null ? body.getCleaningFee() : 0L;
+        String notes = body != null ? body.getNotes() : null;
+
+        var refund = depositRefundService.releaseDeposit(
+                booking.getId(),
+                userId,
+                damage,
+                late,
+                cleaning,
+                notes,
+                idempotencyKey != null ? idempotencyKey : "deposit-" + booking.getId());
+        return Map.of(
+                "status", BookingStatus.DEPOSIT_REFUNDED,
+                "refundInitiated", refund != null);
     }
 
     private PagedResult<SellerBookingListItemResponse> toListPage(
@@ -274,7 +294,7 @@ public class SellerBookingService {
                             : null;
                     UserProfile customer = userProfileRepository.findByUserId(booking.getCustomerId()).orElse(null);
                     return sellerBookingMapper.toListItem(
-                            booking, item, address, customer, isCustomerVisible(booking), commissionRate());
+                            booking, item, address, customer, isCustomerVisible(booking), commissionRate(), refundBusinessDays());
                 })
                 .toList();
 
@@ -386,7 +406,7 @@ public class SellerBookingService {
         return statuses.stream().map(s -> s.toUpperCase(Locale.ROOT)).toList();
     }
 
-    private void validateRejectReason(String reason) {
+    private void validateRejectReason(String reason, String comment) {
         Set<String> allowed = Set.of(
                 SellerRejectReason.ITEM_DAMAGED,
                 SellerRejectReason.ITEM_UNAVAILABLE,
@@ -394,6 +414,9 @@ public class SellerBookingService {
                 SellerRejectReason.OTHER);
         if (!allowed.contains(reason)) {
             throw new ClosiqException(ErrorCode.VALIDATION_ERROR, "Invalid reject reason");
+        }
+        if (SellerRejectReason.OTHER.equals(reason) && (comment == null || comment.isBlank())) {
+            throw new ClosiqException(ErrorCode.VALIDATION_ERROR, "Comment is required when reason is OTHER");
         }
     }
 
@@ -403,6 +426,10 @@ public class SellerBookingService {
 
     private double commissionRate() {
         return properties.getBooking().getCommissionRateBps() / 10_000.0;
+    }
+
+    private int refundBusinessDays() {
+        return properties.getBooking().getCancellation().getRefundBusinessDays();
     }
 
     private int normalizeLimit(Integer limit) {

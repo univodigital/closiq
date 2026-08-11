@@ -24,6 +24,8 @@ public interface ProductRepository extends JpaRepository<Product, UUID>, JpaSpec
 
     long countByCategoryIdAndDeletedAtIsNullAndStatus(UUID categoryId, String status);
 
+    long countByCategoryIdAndDeletedAtIsNull(UUID categoryId);
+
     List<Product> findByFeaturedTrueAndDeletedAtIsNullAndStatusOrderByPublishedAtDesc(String status);
 
     List<Product> findByTrendingTrueAndDeletedAtIsNullAndStatusOrderByPublishedAtDesc(String status);

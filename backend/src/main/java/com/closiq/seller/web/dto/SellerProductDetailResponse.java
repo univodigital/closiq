@@ -21,6 +21,7 @@ public class SellerProductDetailResponse {
     String city;
     String primaryImageUrl;
     List<String> imageUrls;
+    List<ImageSummary> images;
     List<VariantSummary> variants;
     String categoryId;
     String occasion;
@@ -31,6 +32,14 @@ public class SellerProductDetailResponse {
     boolean includesTrial;
     Instant createdAt;
     Instant publishedAt;
+
+    @Value
+    @Builder
+    public static class ImageSummary {
+        String id;
+        String url;
+        int sortOrder;
+    }
 
     @Value
     @Builder

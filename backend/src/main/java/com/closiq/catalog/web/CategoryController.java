@@ -17,7 +17,9 @@ import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
+import org.springframework.format.annotation.DateTimeFormat;
 
+import java.time.LocalDate;
 import java.util.List;
 
 @RestController
@@ -53,10 +55,13 @@ public class CategoryController {
             @RequestParam(required = false) String sort,
             @RequestParam(required = false) String pageToken,
             @RequestParam(required = false) Integer limit,
+            @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate startDate,
+            @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate endDate,
             HttpServletRequest request) {
 
         PagedResult<ProductSummaryResponse> page = categoryService.listCategoryProducts(
-                slug, occasion, size, minPrice, maxPrice, city, featured, trending, sort, pageToken, limit);
+                slug, occasion, size, minPrice, maxPrice, city, featured, trending, sort, pageToken, limit,
+                startDate, endDate);
 
         return ResponseEntity.ok(ApiResponse.ok(
                 page.getItems(),

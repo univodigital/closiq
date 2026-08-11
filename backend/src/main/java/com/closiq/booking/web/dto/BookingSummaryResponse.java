@@ -24,4 +24,7 @@ public class BookingSummaryResponse {
     long totalAmount;
     String currency;
     Instant createdAt;
+    String paymentStatus;
+    boolean paymentPending;
+    String checkoutBatchId;
 }

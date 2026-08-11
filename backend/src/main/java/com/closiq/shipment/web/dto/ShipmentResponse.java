@@ -17,5 +17,6 @@ public class ShipmentResponse {
     String trackingNumber;
     String status;
     Instant pickupScheduledAt;
+    String pickupTimeSlot;
     Instant estimatedDeliveryAt;
 }

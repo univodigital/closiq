@@ -16,5 +16,7 @@ public class CreateRazorpayOrderResponse {
     String currency;
     String keyId;
     String bookingId;
+    String checkoutBatchId;
+    int itemCount;
     Instant expiresAt;
 }

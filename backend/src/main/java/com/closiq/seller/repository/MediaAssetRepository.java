@@ -9,4 +9,6 @@ import java.util.UUID;
 public interface MediaAssetRepository extends JpaRepository<MediaAsset, UUID> {
 
     Optional<MediaAsset> findByIdAndUploadedById(UUID id, UUID userId);
+
+    Optional<MediaAsset> findByIdAndUploadedByIdAndStatus(UUID id, UUID userId, String status);
 }

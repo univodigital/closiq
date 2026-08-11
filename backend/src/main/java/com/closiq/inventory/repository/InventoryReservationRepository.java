@@ -7,6 +7,7 @@ import org.springframework.data.repository.query.Param;
 
 import java.time.Instant;
 import java.time.LocalDate;
+import java.util.Collection;
 import java.util.List;
 import java.util.UUID;
 
@@ -22,6 +23,19 @@ public interface InventoryReservationRepository extends JpaRepository<InventoryR
             """)
     List<InventoryReservation> findActiveForVariantInRange(
             @Param("variantId") UUID variantId,
+            @Param("rangeStart") LocalDate rangeStart,
+            @Param("rangeEnd") LocalDate rangeEnd);
+
+    @Query("""
+            SELECT r FROM InventoryReservation r
+            JOIN FETCH r.inventoryItem i
+            WHERE i.productVariant.id IN :variantIds
+            AND r.status = 'ACTIVE'
+            AND r.endDate >= :rangeStart
+            AND r.startDate <= :rangeEnd
+            """)
+    List<InventoryReservation> findActiveForVariantsInRange(
+            @Param("variantIds") Collection<UUID> variantIds,
             @Param("rangeStart") LocalDate rangeStart,
             @Param("rangeEnd") LocalDate rangeEnd);
 

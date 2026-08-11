@@ -4,7 +4,9 @@ import com.closiq.booking.domain.Booking;
 import com.closiq.booking.domain.BookingStatus;
 import com.closiq.booking.repository.BookingRepository;
 import com.closiq.booking.service.BookingLifecycleService;
+import com.closiq.booking.service.BookingStatusTransitions;
 import com.closiq.booking.service.BookingTimelineService;
+import com.closiq.booking.service.DepositRefundService;
 import com.closiq.notification.service.NotificationDispatchService;
 import com.closiq.shipment.domain.Shipment;
 import com.closiq.shipment.domain.ShipmentStatus;
@@ -22,6 +24,7 @@ public class ShipmentBookingSyncService {
     private final BookingRepository bookingRepository;
     private final BookingTimelineService timelineService;
     private final BookingLifecycleService bookingLifecycleService;
+    private final DepositRefundService depositRefundService;
     private final NotificationDispatchService notificationDispatchService;
 
     @Transactional
@@ -34,6 +37,7 @@ public class ShipmentBookingSyncService {
             return;
         }
 
+        BookingStatusTransitions.assertTransition(booking.getStatus(), bookingStatus);
         booking.setStatus(bookingStatus);
         bookingRepository.save(booking);
         timelineService.append(
@@ -47,6 +51,8 @@ public class ShipmentBookingSyncService {
             notificationDispatchService.trialReady(booking);
         } else if (BookingStatus.OUT_FOR_DELIVERY.equals(bookingStatus)) {
             notificationDispatchService.outForDelivery(booking);
+        } else if (BookingStatus.RETURNED.equals(bookingStatus)) {
+            depositRefundService.beginInspection(booking.getId());
         }
     }
 

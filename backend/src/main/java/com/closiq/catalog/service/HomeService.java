@@ -7,6 +7,7 @@ import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+import java.time.LocalDate;
 import java.util.List;
 import java.util.UUID;
 
@@ -19,16 +20,18 @@ public class HomeService {
     private final UserPreferencesHelper preferencesHelper;
 
     @Transactional(readOnly = true)
-    public List<ProductSummaryResponse> featuredProducts(int limit) {
+    public List<ProductSummaryResponse> featuredProducts(int limit, LocalDate startDate, LocalDate endDate) {
         int size = Math.min(Math.max(limit, 1), 20);
-        return productCatalogService.listProducts(null, null, null, null, null, null, true, null, null, null, null, null, size)
+        return productCatalogService.listProducts(
+                null, null, null, null, null, null, true, null, null, null, null, null, size, startDate, endDate)
                 .getItems();
     }
 
     @Transactional(readOnly = true)
-    public List<ProductSummaryResponse> trendingProducts(int limit) {
+    public List<ProductSummaryResponse> trendingProducts(int limit, LocalDate startDate, LocalDate endDate) {
         int size = Math.min(Math.max(limit, 1), 20);
-        return productCatalogService.listProducts(null, null, null, null, null, null, null, true, null, null, null, null, size)
+        return productCatalogService.listProducts(
+                null, null, null, null, null, null, null, true, null, null, null, null, size, startDate, endDate)
                 .getItems();
     }
 
@@ -37,7 +40,7 @@ public class HomeService {
         int size = Math.min(Math.max(limit, 1), 20);
 
         if (userId == null) {
-            return trendingProducts(size);
+            return trendingProducts(size, null, null);
         }
 
         return userProfileRepository.findByUserId(userId)
@@ -46,11 +49,11 @@ public class HomeService {
                     if (shopping.occasions() != null && !shopping.occasions().isEmpty()) {
                         String occasion = String.join(",", shopping.occasions());
                         return productCatalogService
-                                .listProducts(occasion, null, shopping.size(), null, null, null, null, null, null, null, null, null, size)
+                                .listProducts(occasion, null, shopping.size(), null, null, null, null, null, null, null, null, null, size, null, null)
                                 .getItems();
                     }
-                    return trendingProducts(size);
+                    return trendingProducts(size, null, null);
                 })
-                .orElseGet(() -> trendingProducts(size));
+                .orElseGet(() -> trendingProducts(size, null, null));
     }
 }

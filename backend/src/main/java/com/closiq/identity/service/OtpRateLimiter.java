@@ -34,6 +34,78 @@ public class OtpRateLimiter {
         checkLimit("otp:verify:" + phone, OTP_VERIFY_LIMIT, OTP_VERIFY_WINDOW);
     }
 
+    public void setResendCooldown(String sessionId, Duration cooldown) {
+        String key = resendCooldownKey(sessionId);
+        if (redisAvailable.get() && trySetRedisCooldown(key, cooldown)) {
+            return;
+        }
+        memoryWindows.put(key, new MemoryWindow(1, Instant.now().plus(cooldown)));
+    }
+
+    public void checkResendCooldown(String sessionId, Duration cooldown) {
+        String key = resendCooldownKey(sessionId);
+        if (redisAvailable.get()) {
+            try {
+                Long ttl = redisTemplate.getExpire(key);
+                if (ttl != null && ttl > 0) {
+                    throw resendCooldownException(ttl);
+                }
+                return;
+            } catch (ClosiqException ex) {
+                throw ex;
+            } catch (Exception ex) {
+                log.warn("Redis resend cooldown unavailable ({}), using in-memory fallback", ex.getMessage());
+                redisAvailable.set(false);
+            }
+        }
+        MemoryWindow window = memoryWindows.get(key);
+        if (window != null && window.expiresAt.isAfter(Instant.now())) {
+            long seconds = Duration.between(Instant.now(), window.expiresAt).getSeconds();
+            throw resendCooldownException(Math.max(seconds, 1));
+        }
+    }
+
+    public int getResendCooldownRemainingSeconds(String sessionId) {
+        String key = resendCooldownKey(sessionId);
+        if (redisAvailable.get()) {
+            try {
+                Long ttl = redisTemplate.getExpire(key);
+                if (ttl != null && ttl > 0) {
+                    return ttl.intValue();
+                }
+                return 0;
+            } catch (Exception ex) {
+                redisAvailable.set(false);
+            }
+        }
+        MemoryWindow window = memoryWindows.get(key);
+        if (window != null && window.expiresAt.isAfter(Instant.now())) {
+            return (int) Math.max(Duration.between(Instant.now(), window.expiresAt).getSeconds(), 1);
+        }
+        return 0;
+    }
+
+    private static String resendCooldownKey(String sessionId) {
+        return "otp:resend:cooldown:" + sessionId;
+    }
+
+    private boolean trySetRedisCooldown(String key, Duration cooldown) {
+        try {
+            redisTemplate.opsForValue().set(key, "1", cooldown);
+            return true;
+        } catch (Exception ex) {
+            log.warn("Redis resend cooldown set failed ({}), using in-memory fallback", ex.getMessage());
+            redisAvailable.set(false);
+            return false;
+        }
+    }
+
+    private ClosiqException resendCooldownException(long remainingSeconds) {
+        ClosiqException ex = new ClosiqException(ErrorCode.RATE_LIMIT_EXCEEDED,
+                "Resend available in " + remainingSeconds + " seconds");
+        return ex;
+    }
+
     private void checkLimit(String key, int limit, Duration window) {
         if (redisAvailable.get() && tryRedisLimit(key, limit, window)) {
             return;

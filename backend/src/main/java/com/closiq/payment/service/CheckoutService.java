@@ -13,11 +13,13 @@ import com.closiq.catalog.repository.ProductRepository;
 import com.closiq.catalog.repository.ProductVariantRepository;
 import com.closiq.common.exception.ErrorCode;
 import com.closiq.common.exception.ClosiqException;
+import com.closiq.payment.web.dto.CheckoutCalculateBatchRequest;
 import com.closiq.payment.web.dto.CheckoutCalculateRequest;
 import com.closiq.payment.web.dto.CheckoutCalculateResponse;
 import com.closiq.payment.web.dto.CheckoutSessionResponse;
 import com.closiq.payment.web.dto.InitiateCheckoutSessionRequest;
 import com.closiq.payment.web.dto.ValidateCouponResponse;
+import com.closiq.inventory.service.AvailabilityService;
 import com.closiq.user.domain.Address;
 import com.closiq.user.repository.AddressRepository;
 import com.closiq.user.repository.ServiceablePincodeRepository;
@@ -26,8 +28,11 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.time.Instant;
+import java.time.LocalDate;
 import java.util.ArrayList;
+import java.util.LinkedHashMap;
 import java.util.List;
+import java.util.Map;
 import java.util.UUID;
 
 @Service
@@ -48,6 +53,7 @@ public class CheckoutService {
     private final AddressRepository addressRepository;
     private final BookingService bookingService;
     private final BookingHoldExpiryService holdExpiryService;
+    private final AvailabilityService availabilityService;
 
     @Transactional(readOnly = true)
     public CheckoutCalculateResponse calculate(CheckoutCalculateRequest request) {
@@ -56,6 +62,14 @@ public class CheckoutService {
 
         productVariantRepository.findByIdAndProductId(request.getVariantId(), product.getId())
                 .orElseThrow(() -> new ClosiqException(ErrorCode.NOT_FOUND, "Variant not found"));
+
+        LocalDate effectiveEnd = request.getRentalEndDate().plusDays(product.getCleaningBufferDays());
+        if (!availabilityService.isRangeAvailable(
+                request.getVariantId(), request.getRentalStartDate(), effectiveEnd)) {
+            throw new ClosiqException(
+                    ErrorCode.BOOKING_CONFLICT,
+                    "Selected dates are no longer available for this item");
+        }
 
         BookingPricingService.PricingBreakdown pricing = pricingService.calculate(
                 product, request.getRentalStartDate(), request.getRentalEndDate());
@@ -103,6 +117,88 @@ public class CheckoutService {
                 .depositAmount(pricing.getDepositAmount())
                 .payNowAmount(total)
                 .currency(pricing.getCurrency())
+                .serviceable(serviceable)
+                .build();
+    }
+
+    @Transactional(readOnly = true)
+    public CheckoutCalculateResponse calculateBatch(CheckoutCalculateBatchRequest request) {
+        if (request.getItems() == null || request.getItems().isEmpty()) {
+            throw new ClosiqException(ErrorCode.VALIDATION_ERROR, "At least one item is required");
+        }
+
+        List<CheckoutCalculateResponse> itemResponses = new ArrayList<>();
+        long combinedSubtotal = 0;
+
+        for (CheckoutCalculateBatchRequest.LineItem line : request.getItems()) {
+            CheckoutCalculateResponse item = calculate(new CheckoutCalculateRequest(
+                    line.getProductId(),
+                    line.getVariantId(),
+                    line.getRentalStartDate(),
+                    line.getRentalEndDate(),
+                    request.getPincode(),
+                    null));
+            itemResponses.add(item);
+            combinedSubtotal += item.getSubtotal();
+        }
+
+        long discount = 0;
+        String couponCode = request.getCouponCode();
+        if (couponCode != null && !couponCode.isBlank()) {
+            discount = couponService.validate(couponCode, combinedSubtotal).discountAmount();
+        }
+
+        long total = combinedSubtotal - discount;
+        boolean serviceable = itemResponses.stream().allMatch(r -> r.isServiceable());
+
+        List<CheckoutCalculateResponse.LineItem> lineItems = new ArrayList<>();
+        Map<String, CheckoutCalculateResponse.LineItem> aggregated = new LinkedHashMap<>();
+
+        for (int i = 0; i < itemResponses.size(); i++) {
+            CheckoutCalculateResponse item = itemResponses.get(i);
+            for (CheckoutCalculateResponse.LineItem li : item.getLineItems()) {
+                if ("RENTAL".equals(li.getType())) {
+                    lineItems.add(CheckoutCalculateResponse.LineItem.builder()
+                            .type(li.getType())
+                            .label(itemResponses.size() > 1
+                                    ? "Item " + (i + 1) + ": " + li.getLabel()
+                                    : li.getLabel())
+                            .amount(li.getAmount())
+                            .build());
+                } else if (!"DISCOUNT".equals(li.getType())) {
+                    CheckoutCalculateResponse.LineItem existing = aggregated.get(li.getType());
+                    if (existing == null) {
+                        aggregated.put(li.getType(), li);
+                    } else {
+                        aggregated.put(li.getType(), CheckoutCalculateResponse.LineItem.builder()
+                                .type(li.getType())
+                                .label(existing.getLabel())
+                                .amount(existing.getAmount() + li.getAmount())
+                                .build());
+                    }
+                }
+            }
+        }
+        lineItems.addAll(aggregated.values());
+
+        if (discount > 0) {
+            lineItems.add(CheckoutCalculateResponse.LineItem.builder()
+                    .type("DISCOUNT")
+                    .label("Coupon " + couponCode)
+                    .amount(-discount)
+                    .build());
+        }
+
+        CheckoutCalculateResponse first = itemResponses.getFirst();
+        return CheckoutCalculateResponse.builder()
+                .rentalDays((short) itemResponses.stream().mapToInt(CheckoutCalculateResponse::getRentalDays).max().orElse(0))
+                .lineItems(lineItems)
+                .subtotal(combinedSubtotal)
+                .discountAmount(discount)
+                .totalAmount(total)
+                .depositAmount(itemResponses.stream().mapToLong(CheckoutCalculateResponse::getDepositAmount).sum())
+                .payNowAmount(total)
+                .currency(first.getCurrency())
                 .serviceable(serviceable)
                 .build();
     }

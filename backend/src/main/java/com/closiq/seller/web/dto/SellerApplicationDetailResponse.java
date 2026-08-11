@@ -16,5 +16,6 @@ public class SellerApplicationDetailResponse {
     Instant submittedAt;
     Instant reviewedAt;
     String rejectionReason;
+    boolean canReapply;
     List<KycDocumentSummaryResponse> documents;
 }

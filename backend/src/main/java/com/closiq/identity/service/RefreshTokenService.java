@@ -136,6 +136,30 @@ public class RefreshTokenService {
                 Instant.now());
     }
 
+    @Transactional
+    public void revokeAllOtherSessions(UUID userId, String currentRefreshTokenRaw) {
+        UUID keepFamilyId = resolveActiveFamilyId(currentRefreshTokenRaw).orElse(null);
+        if (keepFamilyId == null) {
+            revokeAllForUser(userId);
+            return;
+        }
+        refreshTokenRepository.revokeAllExceptFamily(
+                userId,
+                keepFamilyId,
+                RefreshTokenStatus.ACTIVE,
+                RefreshTokenStatus.REVOKED,
+                Instant.now());
+    }
+
+    private java.util.Optional<UUID> resolveActiveFamilyId(String rawToken) {
+        if (rawToken == null || rawToken.isBlank()) {
+            return java.util.Optional.empty();
+        }
+        return refreshTokenRepository
+                .findByTokenHashAndStatus(hashUtils.hashToken(rawToken), RefreshTokenStatus.ACTIVE)
+                .map(RefreshToken::getFamilyId);
+    }
+
     public int getRefreshCookieMaxAgeSeconds() {
         return properties.getJwt().getRefreshTokenExpirationDays() * 24 * 3600;
     }

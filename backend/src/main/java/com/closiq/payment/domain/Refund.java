@@ -57,4 +57,7 @@ public class Refund {
 
     @Column(name = "expected_by")
     private Instant expectedBy;
+
+    @Column(name = "idempotency_key", unique = true, length = 64)
+    private String idempotencyKey;
 }

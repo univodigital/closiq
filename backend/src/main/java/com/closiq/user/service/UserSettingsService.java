@@ -5,6 +5,8 @@ import com.closiq.common.exception.ClosiqException;
 import com.closiq.identity.domain.UserProfile;
 import com.closiq.identity.repository.UserProfileRepository;
 import com.closiq.identity.service.UserService;
+import com.closiq.notification.domain.NotificationChannel;
+import com.closiq.notification.service.NotificationChannelResolver;
 import com.closiq.user.domain.ServiceablePincode;
 import com.closiq.user.mapper.UserProfileMapper;
 import com.closiq.user.repository.ServiceablePincodeRepository;
@@ -31,11 +33,12 @@ public class UserSettingsService {
     private final UserService userService;
     private final UserProfileMapper userProfileMapper;
     private final UserPreferencesHelper preferencesHelper;
+    private final NotificationChannelResolver channelResolver;
 
     @Transactional(readOnly = true)
     public NotificationPreferencesResponse getNotificationPreferences(UUID userId) {
         UserProfile profile = userService.requireProfile(userId);
-        return userProfileMapper.toNotificationResponse(profile.getPreferences());
+        return withChannelAvailability(userProfileMapper.toNotificationResponse(profile.getPreferences()));
     }
 
     @Transactional
@@ -46,11 +49,21 @@ public class UserSettingsService {
         UserPreferencesHelper.NotificationPreferences current =
                 preferencesHelper.getNotifications(profile.getPreferences());
 
+        boolean smsEnabled = request.getSmsEnabled() != null ? request.getSmsEnabled() : current.smsEnabled();
+        if (smsEnabled && !channelResolver.isAvailable(NotificationChannel.SMS)) {
+            smsEnabled = false;
+        }
+        boolean pushEnabled = request.getPushEnabled() != null ? request.getPushEnabled() : current.pushEnabled();
+        if (pushEnabled && !channelResolver.isAvailable(NotificationChannel.PUSH)) {
+            pushEnabled = false;
+        }
+
         UserPreferencesHelper.NotificationPreferences updated = new UserPreferencesHelper.NotificationPreferences(
                 request.getEmailEnabled() != null ? request.getEmailEnabled() : current.emailEnabled(),
-                request.getSmsEnabled() != null ? request.getSmsEnabled() : current.smsEnabled(),
-                request.getPushEnabled() != null ? request.getPushEnabled() : current.pushEnabled(),
+                smsEnabled,
+                pushEnabled,
                 request.getOrderUpdates() != null ? request.getOrderUpdates() : current.orderUpdates(),
+                request.getReturnReminders() != null ? request.getReturnReminders() : current.returnReminders(),
                 request.getPromotions() != null ? request.getPromotions() : current.promotions(),
                 request.getSellerBookingAlerts() != null
                         ? request.getSellerBookingAlerts()
@@ -61,7 +74,22 @@ public class UserSettingsService {
         profile.setPreferences(preferences);
         userProfileRepository.save(profile);
 
-        return userProfileMapper.toNotificationResponse(preferences);
+        return withChannelAvailability(userProfileMapper.toNotificationResponse(preferences));
+    }
+
+    private NotificationPreferencesResponse withChannelAvailability(NotificationPreferencesResponse prefs) {
+        return NotificationPreferencesResponse.builder()
+                .emailEnabled(prefs.isEmailEnabled())
+                .smsEnabled(prefs.isSmsEnabled())
+                .pushEnabled(prefs.isPushEnabled())
+                .orderUpdates(prefs.isOrderUpdates())
+                .returnReminders(prefs.isReturnReminders())
+                .promotions(prefs.isPromotions())
+                .sellerBookingAlerts(prefs.isSellerBookingAlerts())
+                .emailAvailable(channelResolver.isAvailable(NotificationChannel.EMAIL))
+                .smsAvailable(channelResolver.isAvailable(NotificationChannel.SMS))
+                .pushAvailable(channelResolver.isAvailable(NotificationChannel.PUSH))
+                .build();
     }
 
     @Transactional(readOnly = true)

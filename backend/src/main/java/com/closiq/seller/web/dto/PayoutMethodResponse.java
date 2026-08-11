@@ -11,4 +11,5 @@ public class PayoutMethodResponse {
     String type;
     String label;
     boolean isDefault;
+    boolean verified;
 }

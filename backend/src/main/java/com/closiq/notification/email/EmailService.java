@@ -7,4 +7,10 @@ public interface EmailService {
     void sendWelcome(String toEmail, String displayName);
 
     void sendPasswordResetOtp(String toEmail, String otp);
+
+    void sendOrderConfirmed(String toEmail, TransactionalEmailContext context);
+
+    void sendOutForDelivery(String toEmail, TransactionalEmailContext context);
+
+    void sendReturnReminder(String toEmail, TransactionalEmailContext context);
 }

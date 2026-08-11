@@ -23,7 +23,6 @@ import org.springframework.data.domain.PageRequest;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
-import java.time.Instant;
 import java.util.List;
 import java.util.UUID;
 
@@ -33,6 +32,7 @@ public class SellerWalletService {
 
     private static final int MIN_PAYOUT = 500;
     private static final String INACTIVE = "INACTIVE";
+    private static final String VERIFIED = "VERIFIED";
 
     private final SellerContextService sellerContextService;
     private final WalletRepository walletRepository;
@@ -59,6 +59,7 @@ public class SellerWalletService {
                         .type("bank")
                         .label(buildBankLabel(account.getBankName(), account.getAccountNumberLast4()))
                         .isDefault(account.isDefault())
+                        .verified(VERIFIED.equals(account.getStatus()))
                         .build())
                 .toList();
 
@@ -69,6 +70,8 @@ public class SellerWalletService {
                 .pendingBalance(wallet.getPendingBalance())
                 .totalEarned(wallet.getTotalEarned())
                 .totalWithdrawn(wallet.getTotalWithdrawn())
+                .minPayoutAmount(MIN_PAYOUT)
+                .payoutProviderConfigured(false)
                 .transactions(txns.getContent().stream().map(this::toTxnResponse).toList())
                 .payoutMethods(payoutMethods)
                 .build();
@@ -92,6 +95,9 @@ public class SellerWalletService {
         Wallet wallet = getOrCreateWallet(seller);
 
         long amount = request.getAmount();
+        if (amount < MIN_PAYOUT) {
+            throw new ClosiqException(ErrorCode.VALIDATION_ERROR, "Minimum payout amount is ₹" + MIN_PAYOUT);
+        }
         if (amount > wallet.getAvailableBalance()) {
             throw new ClosiqException(ErrorCode.INSUFFICIENT_BALANCE);
         }
@@ -99,9 +105,14 @@ public class SellerWalletService {
         UUID bankAccountId = UUID.fromString(request.getPayoutMethodId());
         var bankAccount = bankAccountRepository.findByIdAndSellerProfileId(bankAccountId, seller.getId())
                 .orElseThrow(() -> new ClosiqException(ErrorCode.NOT_FOUND, "Bank account not found"));
+        if (!VERIFIED.equals(bankAccount.getStatus())) {
+            throw new ClosiqException(
+                    ErrorCode.INVALID_STATE_TRANSITION,
+                    "Add and verify a bank account before requesting payout");
+        }
 
         wallet.setAvailableBalance(wallet.getAvailableBalance() - amount);
-        wallet.setTotalWithdrawn(wallet.getTotalWithdrawn() + amount);
+        wallet.setPendingBalance(wallet.getPendingBalance() + amount);
         walletRepository.save(wallet);
 
         PayoutRequest payout = PayoutRequest.builder()
@@ -122,7 +133,7 @@ public class SellerWalletService {
                 .referenceType("PAYOUT")
                 .referenceId(payout.getId().toString())
                 .description("Payout to " + buildBankLabel(bankAccount.getBankName(), bankAccount.getAccountNumberLast4()))
-                .status("COMPLETED")
+                .status("PROCESSING")
                 .build();
         walletTransactionRepository.save(txn);
 
@@ -133,6 +144,41 @@ public class SellerWalletService {
                 .status(payout.getStatus())
                 .amount(payout.getAmount())
                 .build();
+    }
+
+    /**
+     * Restores funds when an external payout provider reports failure.
+     * Idempotent when payout is already marked FAILED.
+     */
+    @Transactional
+    public void markPayoutFailed(UUID payoutId) {
+        PayoutRequest payout = payoutRequestRepository.findById(payoutId)
+                .orElseThrow(() -> new ClosiqException(ErrorCode.NOT_FOUND, "Payout not found"));
+        if ("FAILED".equals(payout.getStatus())) {
+            return;
+        }
+        if (!"PROCESSING".equals(payout.getStatus())) {
+            throw new ClosiqException(ErrorCode.INVALID_STATE_TRANSITION, "Payout is not processing");
+        }
+
+        Wallet wallet = walletRepository.findBySellerProfileId(payout.getSellerProfile().getId())
+                .orElseThrow(() -> new ClosiqException(ErrorCode.NOT_FOUND, "Wallet not found"));
+
+        long amount = payout.getAmount();
+        wallet.setPendingBalance(Math.max(0, wallet.getPendingBalance() - amount));
+        wallet.setAvailableBalance(wallet.getAvailableBalance() + amount);
+        walletRepository.save(wallet);
+
+        payout.setStatus("FAILED");
+        payout.setProcessedAt(java.time.Instant.now());
+        payoutRequestRepository.save(payout);
+
+        walletTransactionRepository
+                .findByReferenceTypeAndReferenceIdAndTxnType("PAYOUT", payoutId.toString(), "DEBIT_PAYOUT")
+                .ifPresent(txn -> {
+                    txn.setStatus("FAILED");
+                    walletTransactionRepository.save(txn);
+                });
     }
 
     private Wallet getOrCreateWallet(SellerProfile seller) {

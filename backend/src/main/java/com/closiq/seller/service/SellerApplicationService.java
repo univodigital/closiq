@@ -6,6 +6,7 @@ import com.closiq.common.util.IdGenerator;
 import com.closiq.storage.FileStorageService;
 import com.closiq.storage.MediaAssetFactory;
 import com.closiq.storage.MediaUploadMapper;
+import com.closiq.common.security.RoleType;
 import com.closiq.identity.domain.User;
 import com.closiq.identity.service.UserService;
 import com.closiq.seller.domain.ApplicationStatus;
@@ -100,6 +101,7 @@ public class SellerApplicationService {
                 .submittedAt(application.getSubmittedAt())
                 .reviewedAt(application.getReviewedAt())
                 .rejectionReason(application.getRejectionReason())
+                .canReapply(canReapply(userId, application))
                 .documents(documents)
                 .build();
     }
@@ -161,6 +163,13 @@ public class SellerApplicationService {
                 .status(mapKycStatusForApi(document.getStatus()))
                 .uploadedAt(document.getUploadedAt())
                 .build();
+    }
+
+    private boolean canReapply(UUID userId, SellerApplication application) {
+        if (application.getStatus() != ApplicationStatus.REJECTED) {
+            return false;
+        }
+        return !userService.getUserRoles(userId).contains(RoleType.SELLER);
     }
 
     private String mapApplicationStatusForApi(ApplicationStatus status) {

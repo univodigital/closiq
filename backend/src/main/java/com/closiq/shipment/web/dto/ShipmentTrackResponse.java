@@ -18,6 +18,8 @@ public class ShipmentTrackResponse {
     String trackingNumber;
     String status;
     Instant estimatedDeliveryAt;
+    Instant pickupScheduledAt;
+    String pickupTimeSlot;
     List<ShipmentEventResponse> events;
     String agentName;
     String agentPhone;

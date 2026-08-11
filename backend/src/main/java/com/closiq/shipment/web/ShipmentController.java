@@ -1,6 +1,6 @@
 package com.closiq.shipment.web;
 
-import com.closiq.booking.web.dto.ReturnRequestRequest;
+import com.closiq.booking.web.dto.ReturnScheduleResponse;
 import com.closiq.common.security.UserPrincipal;
 import com.closiq.common.web.ApiResponse;
 import com.closiq.common.web.ClosiqRequestIdFilter;
@@ -57,14 +57,16 @@ public class ShipmentController {
     }
 
     @PostMapping("/{bookingId}/return-pickup")
-    @Operation(summary = "Schedule return pickup via logistics provider")
-    public ResponseEntity<ApiResponse<ShipmentResponse>> returnPickup(
+    @Operation(summary = "Schedule return pickup via logistics provider (backend assigns slot)")
+    public ResponseEntity<ApiResponse<ReturnScheduleResponse>> returnPickup(
             @AuthenticationPrincipal UserPrincipal principal,
             @PathVariable String bookingId,
-            @Valid @RequestBody ReturnRequestRequest body,
+            @RequestBody(required = false) com.closiq.booking.web.dto.ReturnRequestRequest body,
             HttpServletRequest request) {
 
-        ShipmentResponse response = shipmentService.scheduleReturnPickup(principal.userId(), bookingId, body);
+        com.closiq.booking.web.dto.ReturnRequestRequest safeBody =
+                body != null ? body : new com.closiq.booking.web.dto.ReturnRequestRequest(null);
+        ReturnScheduleResponse response = shipmentService.scheduleReturnPickup(principal.userId(), bookingId, safeBody);
         return ResponseEntity.status(HttpStatus.CREATED).body(
                 ApiResponse.ok(response, ClosiqRequestIdFilter.getRequestId(request)));
     }

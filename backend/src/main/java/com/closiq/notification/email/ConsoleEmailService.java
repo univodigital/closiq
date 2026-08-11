@@ -24,6 +24,21 @@ public class ConsoleEmailService implements EmailService {
         log.info("Password reset OTP email to {}: {}", maskEmail(toEmail), otp);
     }
 
+    @Override
+    public void sendOrderConfirmed(String toEmail, TransactionalEmailContext context) {
+        log.info("Order confirmed email to {} for {}", maskEmail(toEmail), context.orderLabel());
+    }
+
+    @Override
+    public void sendOutForDelivery(String toEmail, TransactionalEmailContext context) {
+        log.info("Out for delivery email to {} for {}", maskEmail(toEmail), context.orderLabel());
+    }
+
+    @Override
+    public void sendReturnReminder(String toEmail, TransactionalEmailContext context) {
+        log.info("Return reminder email to {} for {}", maskEmail(toEmail), context.orderLabel());
+    }
+
     private String maskEmail(String email) {
         if (email == null || !email.contains("@")) {
             return "****";

@@ -1,0 +1,561 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>CLOSIQ — Brand Identity</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=DM+Sans:ital,opsz,wght@0,9..40,400;0,9..40,500;0,9..40,600;1,9..40,400&display=swap" rel="stylesheet" />
+  <style>
+    :root {
+      --navy: #0b1f3a;
+      --royal: #1e3a8a;
+      --ivory: #f7f4ee;
+      --stone: #8b8b8b;
+      --gold: #c9a24e;
+      --burgundy: #4a1520;
+      --border: #ddd6cc;
+      --label: #9a948c;
+    }
+
+    * {
+      box-sizing: border-box;
+      margin: 0;
+      padding: 0;
+    }
+
+    body {
+      font-family: "DM Sans", system-ui, sans-serif;
+      background: #ece8e1;
+      color: var(--navy);
+      line-height: 1.5;
+      -webkit-font-smoothing: antialiased;
+    }
+
+    .page {
+      max-width: 1200px;
+      margin: 32px auto;
+      padding: 48px;
+      background: var(--ivory);
+      border: 1px solid var(--border);
+    }
+
+    .section-label {
+      font-size: 10px;
+      font-weight: 500;
+      letter-spacing: 0.14em;
+      text-transform: uppercase;
+      color: var(--label);
+      margin-bottom: 20px;
+    }
+
+    /* ── Row 1: Hero + Mark panels ── */
+    .hero-row {
+      display: grid;
+      grid-template-columns: 1fr 280px;
+      gap: 1px;
+      background: var(--border);
+      border: 1px solid var(--border);
+      margin-bottom: 1px;
+    }
+
+    .hero-panel {
+      background: var(--ivory);
+      padding: 56px 48px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      min-height: 420px;
+    }
+
+    .hero-panel img {
+      width: auto;
+      height: 300px;
+      max-width: 100%;
+      object-fit: contain;
+    }
+
+    .mark-stack {
+      display: flex;
+      flex-direction: column;
+      gap: 1px;
+      background: var(--border);
+    }
+
+    .mark-panel {
+      background: var(--ivory);
+      padding: 32px 24px;
+      flex: 1;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      min-height: 209px;
+    }
+
+    .mark-panel img {
+      object-fit: contain;
+    }
+
+    .mark-panel.icon-panel img {
+      height: 100px;
+      width: auto;
+      max-width: 100%;
+    }
+
+    .mark-panel.logo-panel img {
+      height: 130px;
+      width: auto;
+      max-width: 100%;
+    }
+
+    /* ── Row 2: Palette + Backgrounds ── */
+    .mid-row {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 1px;
+      background: var(--border);
+      border: 1px solid var(--border);
+      border-top: none;
+      margin-bottom: 1px;
+    }
+
+    .panel {
+      background: var(--ivory);
+      padding: 36px 32px;
+    }
+
+    .swatches {
+      display: flex;
+      gap: 16px;
+      flex-wrap: wrap;
+    }
+
+    .swatch {
+      text-align: center;
+      width: 72px;
+    }
+
+    .swatch-color {
+      width: 72px;
+      height: 72px;
+      border-radius: 8px;
+      border: 1px solid rgba(11, 31, 58, 0.08);
+      margin-bottom: 10px;
+    }
+
+    .swatch-name {
+      font-size: 9px;
+      font-weight: 600;
+      letter-spacing: 0.08em;
+      text-transform: uppercase;
+      color: var(--navy);
+      margin-bottom: 2px;
+    }
+
+    .swatch-hex {
+      font-size: 9px;
+      color: var(--stone);
+      font-variant-numeric: tabular-nums;
+    }
+
+    .backgrounds {
+      display: flex;
+      flex-direction: column;
+      gap: 12px;
+    }
+
+    .bg-sample {
+      border-radius: 4px;
+      padding: 28px 24px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      min-height: 100px;
+    }
+
+    .bg-sample img {
+      object-fit: contain;
+    }
+
+    .bg-sample.ivory { background: var(--ivory); border: 1px solid var(--border); }
+    .bg-sample.ivory img { height: 72px; width: auto; }
+
+    .bg-sample.navy { background: var(--navy); }
+    .bg-sample.navy img { height: 72px; width: auto; }
+
+    .bg-sample.royal { background: var(--royal); }
+    .bg-sample.royal img { height: 72px; width: auto; }
+
+    .bg-sample.burgundy { background: var(--burgundy); }
+    .bg-sample.burgundy img { height: 72px; width: auto; }
+
+    .bg-caption {
+      font-size: 9px;
+      letter-spacing: 0.06em;
+      text-transform: uppercase;
+      color: var(--stone);
+      text-align: center;
+      margin-top: 6px;
+    }
+
+    /* ── Row 3: Applications ── */
+    .apps-row {
+      border: 1px solid var(--border);
+      border-top: none;
+      background: var(--border);
+    }
+
+    .apps-panel {
+      background: var(--ivory);
+      padding: 36px 32px 40px;
+    }
+
+    .apps-grid {
+      display: grid;
+      grid-template-columns: repeat(3, 1fr);
+      gap: 20px;
+    }
+
+    .app-card {
+      border: 1px solid var(--border);
+      border-radius: 4px;
+      overflow: hidden;
+      background: #fff;
+    }
+
+    .app-mock {
+      height: 180px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      position: relative;
+      padding: 16px;
+    }
+
+    .app-meta {
+      padding: 12px 14px;
+      border-top: 1px solid var(--border);
+      background: var(--ivory);
+    }
+
+    .app-title {
+      font-size: 11px;
+      font-weight: 600;
+      letter-spacing: 0.06em;
+      text-transform: uppercase;
+      color: var(--navy);
+    }
+
+    .app-note {
+      font-size: 10px;
+      color: var(--stone);
+      margin-top: 3px;
+    }
+
+    /* Application mockups */
+    .label-mock {
+      background: var(--ivory);
+      width: 100%;
+      height: 100%;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+    }
+
+    .label-mock .woven {
+      background: #fff;
+      border: 1px dashed var(--border);
+      padding: 14px 20px;
+      border-radius: 2px;
+    }
+
+    .label-mock img { height: 48px; width: auto; }
+
+    .hangtag-mock {
+      background: #e8e2d8;
+    }
+
+    .hangtag {
+      width: 110px;
+      background: var(--ivory);
+      border: 1px solid var(--border);
+      border-radius: 4px 4px 2px 2px;
+      padding: 16px 12px 20px;
+      position: relative;
+    }
+
+    .hangtag::before {
+      content: "";
+      position: absolute;
+      top: -6px;
+      left: 50%;
+      transform: translateX(-50%);
+      width: 12px;
+      height: 12px;
+      border-radius: 50%;
+      border: 1px solid var(--border);
+      background: #fff;
+    }
+
+    .hangtag img { height: 80px; width: auto; display: block; margin: 0 auto; }
+
+    .bag-mock {
+      background: var(--navy);
+    }
+
+    .bag-mock img { height: 110px; width: auto; }
+
+    .sign-mock {
+      background: var(--navy);
+      flex-direction: column;
+    }
+
+    .sign-frame {
+      border: 2px solid rgba(247, 244, 238, 0.25);
+      padding: 24px 32px;
+    }
+
+    .sign-mock img { height: 90px; width: auto; }
+
+    .packaging-mock {
+      background: #ece7df;
+    }
+
+    .box {
+      width: 120px;
+      height: 100px;
+      background: var(--ivory);
+      border: 1px solid var(--border);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      position: relative;
+    }
+
+    .box::after {
+      content: "";
+      position: absolute;
+      top: 0;
+      left: 50%;
+      width: 1px;
+      height: 100%;
+      background: var(--border);
+    }
+
+    .box img { height: 44px; width: auto; position: relative; z-index: 1; }
+
+    .app-mock.digital {
+      background: var(--ivory);
+    }
+
+    .app-icon {
+      width: 88px;
+      height: 88px;
+      background: var(--navy);
+      border-radius: 18px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      border: 1px solid rgba(11, 31, 58, 0.15);
+    }
+
+    .app-icon img { height: 52px; width: auto; }
+
+    .footer-note {
+      margin-top: 28px;
+      padding-top: 20px;
+      border-top: 1px solid var(--border);
+      font-size: 10px;
+      color: var(--stone);
+      letter-spacing: 0.04em;
+    }
+
+    @media print {
+      body { background: #fff; }
+      .page { margin: 0; border: none; max-width: none; }
+    }
+
+    @media (max-width: 900px) {
+      .page { padding: 24px; margin: 16px; }
+      .hero-row { grid-template-columns: 1fr; }
+      .mid-row { grid-template-columns: 1fr; }
+      .apps-grid { grid-template-columns: 1fr 1fr; }
+      .hero-panel img { height: 220px; }
+    }
+
+    @media (max-width: 560px) {
+      .apps-grid { grid-template-columns: 1fr; }
+    }
+  </style>
+</head>
+<body>
+  <main class="page">
+    <!-- 1. Primary brand logo + icon / primary logo panels -->
+    <div class="hero-row">
+      <section class="hero-panel" aria-label="Primary brand logo">
+        <img src="assets/logo-full.png" alt="CLOSIQ — Buy · Rent · Redefine" width="400" height="400" />
+      </section>
+      <div class="mark-stack">
+        <section class="mark-panel icon-panel" aria-label="Icon mark">
+          <p class="section-label">Icon</p>
+          <img src="assets/logo-icon.png" alt="CLOSIQ icon" width="200" height="120" />
+        </section>
+        <section class="mark-panel logo-panel" aria-label="Primary logo lockup">
+          <p class="section-label">Primary Logo</p>
+          <img src="assets/logo-full.png" alt="CLOSIQ primary logo lockup" width="220" height="220" />
+        </section>
+      </div>
+    </div>
+
+    <!-- 2. Color palette + logo on backgrounds -->
+    <div class="mid-row">
+      <section class="panel" aria-label="Color palette">
+        <p class="section-label">Color Palette</p>
+        <div class="swatches">
+          <div class="swatch">
+            <div class="swatch-color" style="background:#0B1F3A"></div>
+            <p class="swatch-name">Navy Blue</p>
+            <p class="swatch-hex">#0B1F3A</p>
+          </div>
+          <div class="swatch">
+            <div class="swatch-color" style="background:#1E3A8A"></div>
+            <p class="swatch-name">Royal Blue</p>
+            <p class="swatch-hex">#1E3A8A</p>
+          </div>
+          <div class="swatch">
+            <div class="swatch-color" style="background:#F7F4EE;border:1px solid #E5DDD4"></div>
+            <p class="swatch-name">Ivory</p>
+            <p class="swatch-hex">#F7F4EE</p>
+          </div>
+          <div class="swatch">
+            <div class="swatch-color" style="background:#8B8B8B"></div>
+            <p class="swatch-name">Stone</p>
+            <p class="swatch-hex">#8B8B8B</p>
+          </div>
+          <div class="swatch">
+            <div class="swatch-color" style="background:#C9A24E"></div>
+            <p class="swatch-name">Gold</p>
+            <p class="swatch-hex">#C9A24E</p>
+          </div>
+        </div>
+      </section>
+
+      <section class="panel" aria-label="Logo on different backgrounds">
+        <p class="section-label">Logo Usage</p>
+        <div class="backgrounds">
+          <div>
+            <div class="bg-sample ivory">
+              <img src="assets/logo-full.png" alt="CLOSIQ logo on ivory background" />
+            </div>
+            <p class="bg-caption">Ivory background — navy logo</p>
+          </div>
+          <div>
+            <div class="bg-sample navy">
+              <img src="assets/logo-full-light.png" alt="CLOSIQ logo on navy background" />
+            </div>
+            <p class="bg-caption">Navy background — ivory logo</p>
+          </div>
+          <div>
+            <div class="bg-sample royal">
+              <img src="assets/logo-full-light.png" alt="CLOSIQ logo on royal blue background" />
+            </div>
+            <p class="bg-caption">Royal blue background — ivory logo</p>
+          </div>
+          <div>
+            <div class="bg-sample burgundy">
+              <img src="assets/logo-full-light.png" alt="CLOSIQ logo on burgundy background" />
+            </div>
+            <p class="bg-caption">Burgundy background — ivory logo</p>
+          </div>
+        </div>
+      </section>
+    </div>
+
+    <!-- 3. Logo applications -->
+    <div class="apps-row">
+      <section class="apps-panel" aria-label="Logo applications">
+        <p class="section-label">Logo Applications</p>
+        <div class="apps-grid">
+          <article class="app-card">
+            <div class="app-mock label-mock">
+              <div class="woven">
+                <img src="assets/logo-icon.png" alt="CLOSIQ icon on clothing label" />
+              </div>
+            </div>
+            <div class="app-meta">
+              <p class="app-title">Clothing Label</p>
+              <p class="app-note">Icon only — woven label</p>
+            </div>
+          </article>
+
+          <article class="app-card">
+            <div class="app-mock hangtag-mock">
+              <div class="hangtag">
+                <img src="assets/logo-full.png" alt="CLOSIQ logo on hang tag" />
+              </div>
+            </div>
+            <div class="app-meta">
+              <p class="app-title">Hang Tag</p>
+              <p class="app-note">Full logo lockup where space allows</p>
+            </div>
+          </article>
+
+          <article class="app-card">
+            <div class="app-mock bag-mock">
+              <img src="assets/logo-full-light.png" alt="CLOSIQ logo on shopping bag" />
+            </div>
+            <div class="app-meta">
+              <p class="app-title">Shopping Bag</p>
+              <p class="app-note">Full logo — primary brand-facing</p>
+            </div>
+          </article>
+
+          <article class="app-card">
+            <div class="app-mock sign-mock">
+              <div class="sign-frame">
+                <img src="assets/logo-full-light.png" alt="CLOSIQ logo on storefront sign" />
+              </div>
+            </div>
+            <div class="app-meta">
+              <p class="app-title">Storefront / Sign</p>
+              <p class="app-note">Full logo — large-format signage</p>
+            </div>
+          </article>
+
+          <article class="app-card">
+            <div class="app-mock packaging-mock">
+              <div class="box">
+                <img src="assets/logo-icon.png" alt="CLOSIQ icon on packaging" />
+              </div>
+            </div>
+            <div class="app-meta">
+              <p class="app-title">Packaging</p>
+              <p class="app-note">Icon only at small scale</p>
+            </div>
+          </article>
+
+          <article class="app-card">
+            <div class="app-mock digital">
+              <div class="app-icon">
+                <img src="assets/logo-icon-light.png" alt="CLOSIQ app icon" />
+              </div>
+            </div>
+            <div class="app-meta">
+              <p class="app-title">Digital / App</p>
+              <p class="app-note">Icon only — profile &amp; favicon</p>
+            </div>
+          </article>
+        </div>
+
+        <p class="footer-note">
+          CLOSIQ brand identity — use the full logo lockup for brand-facing applications;
+          use the icon-only mark where space is limited. Preserve original aspect ratios.
+          Do not stretch, distort, or recolor the logo artwork.
+        </p>
+      </section>
+    </div>
+  </main>
+</body>
+</html>

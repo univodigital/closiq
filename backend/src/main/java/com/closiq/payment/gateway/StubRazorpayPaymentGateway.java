@@ -33,6 +33,20 @@ public class StubRazorpayPaymentGateway implements PaymentGateway {
         return expected.equalsIgnoreCase(signature);
     }
 
+    @Override
+    public RazorpayRefundResult createRefund(String providerPaymentId, long amountPaise, String idempotencyKey) {
+        if (amountPaise < 100) {
+            throw new IllegalArgumentException("Refund amount must be at least 100 paise");
+        }
+        String refundId = "rfnd_STUB_" + IdGenerator.uuidV7().toString().replace("-", "").substring(0, 14);
+        log.debug("Stub Razorpay refund created: {} payment={} amount={}", refundId, providerPaymentId, amountPaise);
+        return RazorpayRefundResult.builder()
+                .providerRefundId(refundId)
+                .amountPaise(amountPaise)
+                .status("processed")
+                .build();
+    }
+
     /** Dev helper: generate a valid stub signature for testing. */
     public String generateStubSignature(String orderId, String paymentId) {
         return RazorpayHmac.sign(

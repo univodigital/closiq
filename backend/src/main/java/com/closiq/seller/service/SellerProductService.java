@@ -7,11 +7,13 @@ import com.closiq.catalog.domain.Product;
 import com.closiq.catalog.domain.ProductImage;
 import com.closiq.catalog.domain.ProductStatus;
 import com.closiq.catalog.domain.ProductVariant;
+import com.closiq.catalog.mapper.ProductMapper;
 import com.closiq.catalog.repository.BrandRepository;
 import com.closiq.catalog.repository.CategoryRepository;
 import com.closiq.catalog.repository.ProductImageRepository;
 import com.closiq.catalog.repository.ProductRepository;
 import com.closiq.catalog.repository.ProductVariantRepository;
+import com.closiq.catalog.web.dto.ProductDetailResponse;
 import com.closiq.common.exception.ErrorCode;
 import com.closiq.common.exception.ClosiqException;
 import com.closiq.common.identifier.ProductCodeGenerator;
@@ -24,6 +26,7 @@ import com.closiq.common.web.PagedResult;
 import com.closiq.storage.FileStorageService;
 import com.closiq.storage.MediaAssetFactory;
 import com.closiq.storage.MediaUploadMapper;
+import com.closiq.storage.StoredUploadResult;
 import com.closiq.identity.domain.User;
 import com.closiq.identity.service.UserService;
 import com.closiq.inventory.domain.InventoryItem;
@@ -35,6 +38,7 @@ import com.closiq.seller.domain.MediaAsset;
 import com.closiq.seller.repository.MediaAssetRepository;
 import com.closiq.seller.web.dto.ConfirmProductImageRequest;
 import com.closiq.seller.web.dto.CreateSellerProductRequest;
+import com.closiq.seller.web.dto.DuplicateProductResponse;
 import com.closiq.seller.web.dto.PresignedUploadResponse;
 import com.closiq.seller.web.dto.ProductImageAttachResponse;
 import com.closiq.seller.web.dto.ProductImageUploadUrlRequest;
@@ -44,7 +48,9 @@ import com.closiq.seller.web.dto.SellerProductListItemResponse;
 import com.closiq.seller.web.dto.SellerProductResponse;
 import com.closiq.seller.web.dto.UpdateSellerProductRequest;
 import com.closiq.user.domain.SellerProfile;
+import com.closiq.user.repository.SellerProfileRepository;
 import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.data.domain.Sort;
 import org.springframework.data.jpa.domain.Specification;
@@ -53,13 +59,19 @@ import org.springframework.transaction.annotation.Transactional;
 
 import java.time.Instant;
 import java.time.LocalDate;
+import java.util.HashMap;
 import java.util.List;
 import java.util.Locale;
+import java.util.Map;
+import java.util.Set;
 import java.util.UUID;
 
+@Slf4j
 @Service
 @RequiredArgsConstructor
 public class SellerProductService {
+
+    private static final Set<String> ALLOWED_IMAGE_TYPES = Set.of("image/jpeg", "image/png", "image/webp");
 
     private static final String ACTIVE_CATEGORY = "ACTIVE";
     private static final String ACTIVE_BRAND = "ACTIVE";
@@ -77,12 +89,15 @@ public class SellerProductService {
     private final InventoryHistoryService inventoryHistoryService;
     private final InventoryStockService inventoryStockService;
     private final MediaAssetRepository mediaAssetRepository;
+    private final MediaAssetCleanupService mediaAssetCleanupService;
     private final FileStorageService fileStorageService;
     private final MediaAssetFactory mediaAssetFactory;
     private final MediaUploadMapper mediaUploadMapper;
     private final UserService userService;
     private final ProductCodeGenerator productCodeGenerator;
     private final SlugGenerator slugGenerator;
+    private final ProductMapper productMapper;
+    private final SellerProfileRepository sellerProfileRepository;
 
     @Transactional
     public SellerProductResponse createProduct(
@@ -214,7 +229,6 @@ public class SellerProductService {
         }
 
         product.setStatus(ProductStatus.ARCHIVED);
-        product.setDeletedAt(Instant.now());
         product.setUpdatedBy(userId);
         productRepository.save(product);
     }
@@ -262,8 +276,59 @@ public class SellerProductService {
     }
 
     @Transactional
+    public PublishProductResponse unpublishProduct(UUID userId, UUID productId) {
+        SellerProfile seller = sellerContextService.requireVerifiedSeller(userId);
+        Product product = productAccessService.requireOwnedProduct(seller, productId);
+
+        if (!ProductStatus.ACTIVE.equals(product.getStatus())) {
+            throw new ClosiqException(ErrorCode.INVALID_STATE_TRANSITION, "Only active listings can be unpublished");
+        }
+
+        if (hasActiveBookings(product.getId())) {
+            throw new ClosiqException(
+                    ErrorCode.INVALID_STATE_TRANSITION,
+                    "Cannot unpublish while future bookings exist");
+        }
+
+        product.setStatus(ProductStatus.DRAFT);
+        product.setUpdatedBy(userId);
+        productRepository.save(product);
+
+        return PublishProductResponse.builder()
+                .productId(product.getId())
+                .status(ProductStatus.DRAFT)
+                .publishedAt(product.getPublishedAt())
+                .build();
+    }
+
+    @Transactional
+    public PublishProductResponse restoreProduct(UUID userId, UUID productId) {
+        SellerProfile seller = sellerContextService.requireVerifiedSeller(userId);
+        Product product = productAccessService.requireOwnedProduct(seller, productId);
+
+        if (!ProductStatus.ARCHIVED.equals(product.getStatus())) {
+            throw new ClosiqException(
+                    ErrorCode.INVALID_STATE_TRANSITION, "Only archived listings can be restored");
+        }
+
+        product.setStatus(ProductStatus.DRAFT);
+        product.setDeletedAt(null);
+        product.setPublishedAt(null);
+        product.setUpdatedBy(userId);
+        productRepository.save(product);
+
+        return PublishProductResponse.builder()
+                .productId(product.getId())
+                .status(ProductStatus.DRAFT)
+                .publishedAt(null)
+                .build();
+    }
+
+    @Transactional
     public PresignedUploadResponse createImageUploadUrl(
             UUID userId, UUID productId, ProductImageUploadUrlRequest request) {
+
+        validateImageContentType(request.getContentType());
 
         SellerProfile seller = sellerContextService.requireVerifiedSeller(userId);
         Product product = productAccessService.requireOwnedProduct(seller, productId);
@@ -281,6 +346,70 @@ public class SellerProductService {
     }
 
     @Transactional
+    public ProductImageAttachResponse uploadProductImage(
+            UUID userId,
+            UUID productId,
+            byte[] fileBytes,
+            String fileName,
+            String contentType,
+            short sortOrder,
+            String alt) {
+
+        validateImageContentType(contentType);
+        if (fileBytes == null || fileBytes.length == 0) {
+            throw new ClosiqException(ErrorCode.VALIDATION_ERROR, "Image file is required");
+        }
+        if (fileBytes.length > 10 * 1024 * 1024) {
+            throw new ClosiqException(ErrorCode.VALIDATION_ERROR, "Each image must be 10 MB or smaller");
+        }
+
+        SellerProfile seller = sellerContextService.requireVerifiedSeller(userId);
+        Product product = productAccessService.requireOwnedProduct(seller, productId);
+        User user = userService.requireActiveUser(userId);
+
+        UUID uploadId = IdGenerator.uuidV7();
+        String relativePath = "products/" + product.getId() + "/" + uploadId;
+
+        MediaAsset asset = mediaAssetFactory.createPendingUpload(
+                uploadId, user, relativePath, fileName, contentType);
+        mediaAssetRepository.save(asset);
+
+        try {
+            StoredUploadResult uploaded = fileStorageService.uploadBytes(
+                    relativePath, contentType, fileName, fileBytes);
+
+            asset.setStatus("ATTACHED");
+            mediaAssetRepository.save(asset);
+
+            ProductImage image = ProductImage.builder()
+                    .id(IdGenerator.uuidV7())
+                    .product(product)
+                    .imageUrl(uploaded.getPublicUrl())
+                    .altText(alt)
+                    .sortOrder(sortOrder)
+                    .createdAt(Instant.now())
+                    .build();
+            productImageRepository.save(image);
+
+            if (product.getPrimaryImageUrl() == null || sortOrder == 0) {
+                product.setPrimaryImageUrl(uploaded.getPublicUrl());
+                productRepository.save(product);
+            }
+
+            return ProductImageAttachResponse.builder()
+                    .imageId(image.getId().toString())
+                    .url(image.getImageUrl())
+                    .sortOrder(image.getSortOrder())
+                    .alt(image.getAltText())
+                    .build();
+        } catch (RuntimeException ex) {
+            log.warn("Product image upload failed for product {}: {}", productId, ex.getMessage());
+            mediaAssetCleanupService.orphanAndDelete(asset);
+            throw ex;
+        }
+    }
+
+    @Transactional
     public ProductImageAttachResponse confirmImage(
             UUID userId, UUID productId, ConfirmProductImageRequest request) {
 
@@ -291,31 +420,150 @@ public class SellerProductService {
         MediaAsset asset = mediaAssetRepository.findByIdAndUploadedById(uploadId, userId)
                 .orElseThrow(() -> new ClosiqException(ErrorCode.NOT_FOUND, "Upload not found"));
 
-        asset.setStatus("ATTACHED");
-        mediaAssetRepository.save(asset);
-
-        String publicUrl = fileStorageService.resolvePublicUrl(asset);
-        ProductImage image = ProductImage.builder()
-                .id(IdGenerator.uuidV7())
-                .product(product)
-                .imageUrl(publicUrl)
-                .altText(request.getAlt())
-                .sortOrder(request.getSortOrder())
-                .createdAt(Instant.now())
-                .build();
-        productImageRepository.save(image);
-
-        if (product.getPrimaryImageUrl() == null || request.getSortOrder() == 0) {
-            product.setPrimaryImageUrl(publicUrl);
-            productRepository.save(product);
+        if ("ORPHANED".equals(asset.getStatus())) {
+            throw new ClosiqException(ErrorCode.INVALID_STATE_TRANSITION, "Upload was cancelled");
         }
 
-        return ProductImageAttachResponse.builder()
-                .imageId(image.getId().toString())
-                .url(publicUrl)
-                .sortOrder(image.getSortOrder())
-                .alt(image.getAltText())
+        String publicUrl = fileStorageService.resolvePublicUrl(asset);
+        if ("ATTACHED".equals(asset.getStatus())) {
+            return productImageRepository.findByProductIdAndImageUrl(product.getId(), publicUrl)
+                    .map(image -> ProductImageAttachResponse.builder()
+                            .imageId(image.getId().toString())
+                            .url(image.getImageUrl())
+                            .sortOrder(image.getSortOrder())
+                            .alt(image.getAltText())
+                            .build())
+                    .orElseThrow(() -> new ClosiqException(ErrorCode.NOT_FOUND, "Attached image not found"));
+        }
+
+        try {
+            asset.setStatus("ATTACHED");
+            mediaAssetRepository.save(asset);
+
+            ProductImage image = ProductImage.builder()
+                    .id(IdGenerator.uuidV7())
+                    .product(product)
+                    .imageUrl(publicUrl)
+                    .altText(request.getAlt())
+                    .sortOrder(request.getSortOrder())
+                    .createdAt(Instant.now())
+                    .build();
+            productImageRepository.save(image);
+
+            if (product.getPrimaryImageUrl() == null || request.getSortOrder() == 0) {
+                product.setPrimaryImageUrl(publicUrl);
+                productRepository.save(product);
+            }
+
+            return ProductImageAttachResponse.builder()
+                    .imageId(image.getId().toString())
+                    .url(publicUrl)
+                    .sortOrder(image.getSortOrder())
+                    .alt(image.getAltText())
+                    .build();
+        } catch (RuntimeException ex) {
+            log.warn("Product image confirm failed for upload {}: {}", uploadId, ex.getMessage());
+            mediaAssetCleanupService.orphanAndDelete(asset);
+            throw ex;
+        }
+    }
+
+    @Transactional
+    public void abortImageUpload(UUID userId, UUID productId, UUID uploadId) {
+        SellerProfile seller = sellerContextService.requireVerifiedSeller(userId);
+        productAccessService.requireOwnedProduct(seller, productId);
+
+        MediaAsset asset = mediaAssetRepository.findByIdAndUploadedByIdAndStatus(uploadId, userId, "UPLOADED")
+                .orElseThrow(() -> new ClosiqException(ErrorCode.NOT_FOUND, "Pending upload not found"));
+        mediaAssetCleanupService.orphanAndDelete(asset);
+    }
+
+    @Transactional
+    public DuplicateProductResponse duplicateProduct(UUID userId, UUID productId) {
+        SellerProfile seller = sellerContextService.requireVerifiedSeller(userId);
+        Product source = productAccessService.requireOwnedProduct(seller, productId);
+
+        if (ProductStatus.ARCHIVED.equals(source.getStatus())) {
+            throw new ClosiqException(ErrorCode.INVALID_STATE_TRANSITION, "Cannot duplicate an archived product");
+        }
+
+        String title = source.getTitle() + " Copy";
+        String slug = slugGenerator.uniqueSlug(title, productRepository::existsBySlugAndDeletedAtIsNull);
+        UUID newProductId = IdGenerator.uuidV7();
+        Instant now = Instant.now();
+
+        Product duplicate = Product.builder()
+                .id(newProductId)
+                .productCode(productCodeGenerator.nextCode())
+                .slug(slug)
+                .title(title)
+                .description(source.getDescription())
+                .category(source.getCategory())
+                .brand(source.getBrand())
+                .pricePerDay(source.getPricePerDay())
+                .depositAmount(source.getDepositAmount())
+                .currencyCode(source.getCurrencyCode())
+                .sellerProfileId(seller.getId())
+                .city(source.getCity())
+                .audience(source.getAudience())
+                .garmentType(source.getGarmentType())
+                .minRentalDays(source.getMinRentalDays())
+                .maxRentalDays(source.getMaxRentalDays())
+                .cleaningBufferDays(source.getCleaningBufferDays())
+                .includesTrial(source.isIncludesTrial())
+                .trialDurationMinutes(source.getTrialDurationMinutes())
+                .featured(false)
+                .trending(false)
+                .status(ProductStatus.DRAFT)
+                .reviewCount(0)
+                .primaryImageUrl(source.getPrimaryImageUrl())
                 .build();
+        duplicate.setCreatedBy(userId);
+        duplicate.setUpdatedBy(userId);
+        productRepository.save(duplicate);
+
+        for (ProductImage sourceImage : productImageRepository.findByProductIdOrderBySortOrderAsc(source.getId())) {
+            productImageRepository.save(ProductImage.builder()
+                    .id(IdGenerator.uuidV7())
+                    .product(duplicate)
+                    .imageUrl(sourceImage.getImageUrl())
+                    .altText(sourceImage.getAltText())
+                    .sortOrder(sourceImage.getSortOrder())
+                    .createdAt(now)
+                    .build());
+        }
+
+        short sort = 0;
+        for (ProductVariant sourceVariant :
+                productVariantRepository.findByProductIdOrderBySortOrderAsc(source.getId())) {
+            ProductVariant variant = ProductVariant.builder()
+                    .id(IdGenerator.uuidV7())
+                    .product(duplicate)
+                    .sku(buildSku(slug, sourceVariant.getVariantLabel()))
+                    .variantLabel(sourceVariant.getVariantLabel())
+                    .status(ACTIVE_VARIANT)
+                    .sortOrder(++sort)
+                    .createdAt(now)
+                    .build();
+            productVariantRepository.save(variant);
+            int availableUnits = inventoryStockService.countAvailableUnits(sourceVariant.getId());
+            createInventoryUnits(variant, Math.max(availableUnits, 1), userId);
+        }
+
+        return DuplicateProductResponse.builder()
+                .productId(duplicate.getId().toString())
+                .slug(duplicate.getSlug())
+                .productCode(duplicate.getProductCode())
+                .title(duplicate.getTitle())
+                .status(duplicate.getStatus())
+                .build();
+    }
+
+    @Transactional(readOnly = true)
+    public ProductDetailResponse previewProduct(UUID userId, UUID productId) {
+        SellerProfile seller = sellerContextService.requireVerifiedSeller(userId);
+        Product product = productAccessService.requireOwnedProduct(seller, productId);
+        return buildProductDetail(product);
     }
 
     @Transactional
@@ -376,12 +624,20 @@ public class SellerProductService {
         SellerProfile seller = sellerContextService.requireVerifiedSeller(userId);
         Product product = productAccessService.requireOwnedProduct(seller, productId);
 
-        List<String> imageUrls = productImageRepository.findByProductIdOrderBySortOrderAsc(product.getId()).stream()
-                .map(ProductImage::getImageUrl)
-                .toList();
+        List<ProductImage> productImages =
+                productImageRepository.findByProductIdOrderBySortOrderAsc(product.getId());
+        List<String> imageUrls = productImages.stream().map(ProductImage::getImageUrl).toList();
         if (imageUrls.isEmpty() && product.getPrimaryImageUrl() != null) {
             imageUrls = List.of(product.getPrimaryImageUrl());
         }
+
+        List<SellerProductDetailResponse.ImageSummary> images = productImages.stream()
+                .map(image -> SellerProductDetailResponse.ImageSummary.builder()
+                        .id(image.getId().toString())
+                        .url(image.getImageUrl())
+                        .sortOrder(image.getSortOrder())
+                        .build())
+                .toList();
 
         List<ProductVariant> variants = productVariantRepository.findByProductIdOrderBySortOrderAsc(product.getId());
 
@@ -397,6 +653,7 @@ public class SellerProductService {
                 .city(product.getCity())
                 .primaryImageUrl(product.getPrimaryImageUrl())
                 .imageUrls(imageUrls)
+                .images(images)
                 .variants(variants.stream()
                         .map(variant -> SellerProductDetailResponse.VariantSummary.builder()
                                 .id(variant.getId().toString())
@@ -422,7 +679,9 @@ public class SellerProductService {
 
         return (root, query, cb) -> {
             var predicates = new java.util.ArrayList<jakarta.persistence.criteria.Predicate>();
-            predicates.add(cb.isNull(root.get("deletedAt")));
+            predicates.add(cb.or(
+                    cb.isNull(root.get("deletedAt")),
+                    cb.equal(root.get("status"), ProductStatus.ARCHIVED)));
             predicates.add(cb.equal(root.get("sellerProfileId"), sellerProfileId));
             if (status != null && !status.isBlank()) {
                 predicates.add(cb.equal(root.get("status"), status.toUpperCase(Locale.ROOT)));
@@ -547,5 +806,35 @@ public class SellerProductService {
 
     private boolean publicUrlEquals(String a, String b) {
         return a != null && a.equals(b);
+    }
+
+    private void validateImageContentType(String contentType) {
+        if (contentType == null || !ALLOWED_IMAGE_TYPES.contains(contentType.toLowerCase(Locale.ROOT))) {
+            throw new ClosiqException(ErrorCode.VALIDATION_ERROR, "Only JPEG, PNG, and WebP images are supported");
+        }
+    }
+
+    private ProductDetailResponse buildProductDetail(Product product) {
+        List<ProductVariant> variants = productVariantRepository.findByProductIdOrderBySortOrderAsc(product.getId());
+        List<ProductImage> images = productImageRepository.findByProductIdOrderBySortOrderAsc(product.getId());
+        SellerProfile seller = product.getSellerProfileId() != null
+                ? sellerProfileRepository.findById(product.getSellerProfileId()).orElse(null)
+                : null;
+
+        Map<UUID, Brand> brands = new HashMap<>();
+        if (product.getBrand() != null) {
+            brands.put(product.getBrand().getId(), product.getBrand());
+        }
+        Map<UUID, SellerProfile> sellers = seller != null ? Map.of(seller.getId(), seller) : Map.of();
+        Map<UUID, List<ProductImage>> imagesByProduct = Map.of(product.getId(), images);
+
+        String designer = productMapper.resolveDesigner(product, brands, sellers);
+        List<String> imageUrls = productMapper.resolveImageUrls(product, imagesByProduct);
+
+        List<UUID> variantIds = variants.stream().map(ProductVariant::getId).toList();
+        Map<UUID, Integer> unitsByVariant = inventoryStockService.countAvailableUnitsByVariant(variantIds);
+        int totalStock = unitsByVariant.values().stream().mapToInt(Integer::intValue).sum();
+
+        return productMapper.toDetail(product, designer, imageUrls, variants, seller, unitsByVariant, totalStock);
     }
 }

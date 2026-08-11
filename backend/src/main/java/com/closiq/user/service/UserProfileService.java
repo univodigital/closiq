@@ -57,15 +57,7 @@ public class UserProfileService {
             profile.setGender(request.getGender());
         }
 
-        if (request.getEmail() != null) {
-            userRepository.findByEmailIgnoreCaseAndDeletedAtIsNull(request.getEmail())
-                    .filter(existing -> !existing.getId().equals(userId))
-                    .ifPresent(existing -> {
-                        throw new ClosiqException(ErrorCode.ALREADY_EXISTS, "Email is already in use");
-                    });
-            user.setEmail(request.getEmail());
-            user.setEmailVerified(false);
-        }
+        // Primary email and avatar are managed through dedicated security endpoints.
 
         if (request.getAlternatePhone() != null) {
             String alternatePhone = request.getAlternatePhone().isBlank() ? null : request.getAlternatePhone();
@@ -91,10 +83,6 @@ public class UserProfileService {
         }
 
         Map<String, Object> preferences = preferencesHelper.read(profile.getPreferences());
-
-        if (request.getAvatarUrl() != null) {
-            preferences = preferencesHelper.withAvatarUrl(preferences, request.getAvatarUrl());
-        }
 
         if (request.getPreferences() != null) {
             preferences = preferencesHelper.mergeShopping(

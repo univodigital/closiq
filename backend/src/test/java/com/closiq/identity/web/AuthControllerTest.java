@@ -74,4 +74,21 @@ class AuthControllerTest {
                 .andExpect(status().isBadRequest())
                 .andExpect(jsonPath("$.code").value("VALIDATION_ERROR"));
     }
+
+    @Test
+    void resendOtp_returnsUpdatedSession() throws Exception {
+        when(authService.resendOtp(any())).thenReturn(OtpInitiateResponse.builder()
+                .otpSessionId("550e8400-e29b-41d4-a716-446655440000")
+                .phone("+919876543210")
+                .expiresInSeconds(300)
+                .resendAvailableInSeconds(60)
+                .isExistingUser(false)
+                .build());
+
+        mockMvc.perform(post("/api/v1/auth/resend-otp")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("{\"otpSessionId\":\"550e8400-e29b-41d4-a716-446655440000\"}"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.data.resendAvailableInSeconds").value(60));
+    }
 }

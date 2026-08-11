@@ -1,19 +1,12 @@
 package com.closiq.booking.web.dto;
 
-import jakarta.validation.constraints.NotNull;
 import lombok.Value;
 
-import java.time.LocalDate;
 import java.util.UUID;
 
+/** Customer return request — pickup date/window are assigned by the backend. */
 @Value
 public class ReturnRequestRequest {
-
-    @NotNull
-    LocalDate pickupDate;
-
-    @NotNull
-    String pickupTimeSlot;
 
     UUID addressId;
 }

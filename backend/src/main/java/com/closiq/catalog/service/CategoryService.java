@@ -12,6 +12,7 @@ import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+import java.time.LocalDate;
 import java.util.List;
 import java.util.UUID;
 
@@ -50,13 +51,15 @@ public class CategoryService {
             Boolean trending,
             String sort,
             String pageToken,
-            Integer limit) {
+            Integer limit,
+            LocalDate rentalStartDate,
+            LocalDate rentalEndDate) {
 
         var category = categoryRepository.findBySlugAndStatus(slug, ACTIVE)
                 .orElseThrow(() -> new ClosiqException(ErrorCode.NOT_FOUND, "Category not found"));
 
         return productCatalogService.listProducts(
                 occasion, category.getId(), size, minPrice, maxPrice, city, featured, trending,
-                null, null, sort, pageToken, limit);
+                null, null, sort, pageToken, limit, rentalStartDate, rentalEndDate);
     }
 }

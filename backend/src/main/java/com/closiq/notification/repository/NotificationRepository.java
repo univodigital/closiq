@@ -42,4 +42,7 @@ public interface NotificationRepository extends JpaRepository<Notification, UUID
             WHERE n.userId = :userId AND n.read = false
             """)
     int markAllRead(@Param("userId") UUID userId, @Param("now") Instant now);
+
+    List<Notification> findByUserIdAndNotificationTypeOrderByCreatedAtDesc(
+            UUID userId, String notificationType, Pageable pageable);
 }
