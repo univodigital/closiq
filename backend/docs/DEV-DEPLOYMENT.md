@@ -331,8 +331,11 @@ docker push ${AWS_ACCOUNT_ID}.dkr.ecr.${AWS_REGION}.amazonaws.com/closiq/backend
 
 | Variable | Value |
 |----------|-------|
-| `NEXT_PUBLIC_API_URL` | `https://api.yourdomain.com/api/v1` or App Runner URL + `/api/v1` |
+| `NEXT_PUBLIC_API_URL` | `https://closiq-three.vercel.app/api/v1` (same-origin proxy) |
+| `API_PROXY_TARGET` | Backend base URL, no path — e.g. `http://YOUR_EC2_PUBLIC_IP:8081` or App Runner origin without `/api/v1` |
 | `NEXT_PUBLIC_RAZORPAY_KEY_ID` | Razorpay test key (if not using stub) |
+
+The Next.js route at `frontend/src/app/api/v1/[...path]/route.ts` proxies browser requests to `API_PROXY_TARGET`. Without it, `/api/v1/*` returns 503 on Vercel.
 
 Redeploy Vercel after changing env vars.
 
@@ -493,6 +496,6 @@ Dev: keep `REFRESH_COOKIE_SECURE=false` only for HTTP testing — use HTTPS in p
 1. Run `closiq-dev-schema.sql` in Supabase dev project
 2. Set `spring.flyway.baseline-version=33`
 3. Deploy backend on **EC2** or **App Runner** (Mumbai)
-4. Point Vercel `NEXT_PUBLIC_API_URL` at your AWS URL
+4. Set Vercel `NEXT_PUBLIC_API_URL=https://closiq-three.vercel.app/api/v1` and `API_PROXY_TARGET` to your AWS backend origin
 5. Verify `/actuator/health` and login flow
 6. Run seed migrations (V5, V7, V25) when you want demo data
