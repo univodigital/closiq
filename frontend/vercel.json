@@ -1,10 +1,4 @@
 {
   "$schema": "https://openapi.vercel.sh/vercel.json",
-  "framework": "nextjs",
-  "rewrites": [
-    {
-      "source": "/api/v1/:path*",
-      "destination": "http://3.111.36.41:8081/api/v1/:path*"
-    }
-  ]
+  "framework": "nextjs"
 }
