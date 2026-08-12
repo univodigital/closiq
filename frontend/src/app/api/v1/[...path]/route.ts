@@ -1,8 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
 
-const BACKEND =
-  process.env.API_PROXY_TARGET?.replace(/\/$/, "") ?? "http://localhost:8081";
-
 const FORWARD_REQUEST_HEADERS = [
   "accept",
   "accept-language",
@@ -12,13 +9,33 @@ const FORWARD_REQUEST_HEADERS = [
 ];
 
 export const runtime = "nodejs";
+export const dynamic = "force-dynamic";
 export const maxDuration = 60;
 
 type RouteContext = { params: Promise<{ path: string[] }> };
 
+function resolveBackendTarget(): string {
+  const configured = process.env.API_PROXY_TARGET?.replace(/\/$/, "");
+  if (configured) return configured;
+  if (process.env.NODE_ENV === "development") return "http://localhost:8081";
+  return "";
+}
+
 async function proxy(request: NextRequest, context: RouteContext) {
+  const backend = resolveBackendTarget();
+  if (!backend) {
+    return NextResponse.json(
+      {
+        title: "Service Unavailable",
+        detail:
+          "API_PROXY_TARGET is not configured. Set it in Vercel to your backend URL (e.g. http://YOUR_EC2_IP:8081), then redeploy.",
+      },
+      { status: 503 },
+    );
+  }
+
   const { path } = await context.params;
-  const target = new URL(`/api/v1/${path.join("/")}`, BACKEND);
+  const target = new URL(`/api/v1/${path.join("/")}`, backend);
   target.search = request.nextUrl.search;
 
   const headers = new Headers();
@@ -37,7 +54,20 @@ async function proxy(request: NextRequest, context: RouteContext) {
     init.body = await request.arrayBuffer();
   }
 
-  const backendResponse = await fetch(target, init);
+  let backendResponse: Response;
+  try {
+    backendResponse = await fetch(target, init);
+  } catch (error) {
+    console.error("API proxy fetch failed:", target.toString(), error);
+    return NextResponse.json(
+      {
+        title: "Bad Gateway",
+        detail: `Could not reach backend at ${backend}.`,
+      },
+      { status: 502 },
+    );
+  }
+
   const responseHeaders = new Headers();
 
   backendResponse.headers.forEach((value, key) => {
