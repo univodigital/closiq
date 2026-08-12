@@ -58,7 +58,18 @@ public class AuthService {
     @Transactional
     public OtpInitiateResponse register(String phone, String email) {
         String normalizedPhone = normalizePhone(phone);
+        if (userRepository.existsByPhoneAndPhoneVerifiedTrueAndDeletedAtIsNull(normalizedPhone)) {
+            throw new ClosiqException(ErrorCode.ALREADY_EXISTS,
+                    "An account with this phone number already exists. Please log in instead.");
+        }
+
         String deliveryEmail = email != null && !email.isBlank() ? email.trim().toLowerCase() : null;
+        if (deliveryEmail != null) {
+            userRepository.findByEmailIgnoreCaseAndDeletedAtIsNull(deliveryEmail).ifPresent(existing -> {
+                throw new ClosiqException(ErrorCode.ALREADY_EXISTS, "Email is already registered");
+            });
+        }
+
         OtpSession session = otpService.createSession(normalizedPhone, OtpPurpose.REGISTER, deliveryEmail);
         return buildOtpInitiateResponse(session, false);
     }

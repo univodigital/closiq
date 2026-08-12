@@ -4,8 +4,10 @@ target/
 !.env.example
 !.env.*.example
 
-# Local test profile — contains secrets; use application-test.properties.example as template
+# Local profiles — contain secrets; use *.example templates
 src/main/resources/application-test.properties
+src/main/resources/application-dev.properties
+.env.dev
 .idea/
 *.iml
 .classpath

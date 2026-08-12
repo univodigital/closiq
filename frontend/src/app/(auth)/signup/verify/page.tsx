@@ -13,24 +13,29 @@ import { ROUTES } from "@/shared/constants/routes";
 import { getSafeReturnUrl } from "@/lib/safe-return-url";
 import { maskPhone } from "@/lib/phone-mask";
 import { ApiError } from "@/lib/api-client";
+import type { RegistrationProfile } from "@/features/auth/services/auth.service";
 
 export default function VerifyOtpPage() {
   const router = useRouter();
   const searchParams = useSearchParams();
   const returnUrl = getSafeReturnUrl(searchParams.get("returnUrl"));
   const mode = searchParams.get("mode") ?? "login";
-  const { verifyLoginOtp, verifyRegistrationOtp } = useAuth();
+  const { verifyLoginOtp, verifyRegistrationOtp, completeRegistration } = useAuth();
   const [otp, setOtp] = useState("");
   const [loading, setLoading] = useState(false);
   const [resendLoading, setResendLoading] = useState(false);
   const [phone, setPhone] = useState("");
+  const [email, setEmail] = useState("");
   const [resendIn, setResendIn] = useState(0);
   const [resendExhausted, setResendExhausted] = useState(false);
 
   useEffect(() => {
     const storedPhone = sessionStorage.getItem("otpPhone");
     const deliveryHint = sessionStorage.getItem("otpDeliveryHint");
-    setPhone(storedPhone ?? deliveryHint ?? "");
+    setPhone(storedPhone || deliveryHint || "");
+    if (deliveryHint?.includes("@")) {
+      setEmail(deliveryHint);
+    }
     const initialResend = Number(sessionStorage.getItem("otpResendIn") ?? "60");
     setResendIn(Number.isFinite(initialResend) ? initialResend : 60);
   }, []);
@@ -84,8 +89,20 @@ export default function VerifyOtpPage() {
           return;
         }
         if (result.requiresProfile) {
-          sessionStorage.setItem("registerOtpVerified", "1");
-          router.push("/signup/profile");
+          const profileRaw = sessionStorage.getItem("registerProfile");
+          if (!profileRaw) {
+            toast.error("Session expired. Please start again.");
+            router.push(ROUTES.signup);
+            return;
+          }
+          const profile = JSON.parse(profileRaw) as RegistrationProfile;
+          await completeRegistration(otpSessionId, profile);
+          sessionStorage.removeItem("otpSessionId");
+          sessionStorage.removeItem("otpPhone");
+          sessionStorage.removeItem("otpDeliveryHint");
+          sessionStorage.removeItem("otpResendIn");
+          sessionStorage.removeItem("registerProfile");
+          router.push("/signup/welcome");
           return;
         }
         if (result.authenticated) {
@@ -114,19 +131,22 @@ export default function VerifyOtpPage() {
     }
   };
 
-  const maskedPhone = phone.includes("@") ? phone : maskPhone(phone);
+  const isEmailIdentifier = phone.includes("@");
+  const maskedPhone = isEmailIdentifier ? phone : phone ? maskPhone(phone) : "";
+  const deliveryMessage =
+    mode === "register" && phone && email && !isEmailIdentifier
+      ? `Code sent to ${maskedPhone} and ${email}`
+      : isEmailIdentifier
+        ? `Code sent to ${phone}`
+        : phone
+          ? `Code sent to ${maskedPhone}`
+          : "Enter the 6-digit code we sent you";
 
   return (
     <Card>
       <CardHeader>
         <CardTitle>Enter OTP</CardTitle>
-        <p className="text-sm text-muted-foreground">
-          {phone.includes("@")
-            ? `Code sent to ${phone}`
-            : phone
-              ? `Code sent to ${maskedPhone}`
-              : "Enter the 6-digit code we sent you"}
-        </p>
+        <p className="text-sm text-muted-foreground">{deliveryMessage}</p>
       </CardHeader>
       <CardContent className="space-y-4">
         <div>

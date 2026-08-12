@@ -135,52 +135,54 @@ export default function LoginPage() {
           </button>
         </div>
 
-        {mode === "otp" ? (
-          <form onSubmit={otpForm.handleSubmit(onOtpSubmit)} className="space-y-4">
-            <div>
-              <label className="label-caps mb-2 block text-muted-foreground">Phone or email</label>
-              <Input
-                {...otpForm.register("identifier")}
-                placeholder="Phone or email"
-                autoComplete="username"
-                error={otpForm.formState.errors.identifier?.message}
-              />
-            </div>
-            <Button type="submit" variant="primary" size="lg" className="w-full" disabled={loading}>
-              {loading ? "Sending OTP…" : "Send OTP"}
-            </Button>
-          </form>
-        ) : (
-          <form onSubmit={passwordForm.handleSubmit(onPasswordSubmit)} className="space-y-4">
-            <div>
-              <label className="label-caps mb-2 block text-muted-foreground">Phone or email</label>
-              <Input
-                {...passwordForm.register("identifier")}
-                placeholder="Phone or email"
-                autoComplete="username"
-                error={passwordForm.formState.errors.identifier?.message}
-              />
-            </div>
-            <div>
-              <div className="mb-2 flex items-center justify-between">
-                <label className="label-caps text-muted-foreground">Password</label>
-                <Link href={ROUTES.forgotPassword} className="text-xs text-accent hover:underline">
-                  Forgot password?
-                </Link>
+        <div className="min-h-[248px]">
+          {mode === "otp" ? (
+            <form onSubmit={otpForm.handleSubmit(onOtpSubmit)} className="space-y-4">
+              <div>
+                <label className="label-caps mb-2 block text-muted-foreground">Phone or email</label>
+                <Input
+                  {...otpForm.register("identifier")}
+                  placeholder="Phone or email"
+                  autoComplete="username"
+                  error={otpForm.formState.errors.identifier?.message}
+                />
               </div>
-              <Input
-                {...passwordForm.register("password")}
-                type="password"
-                placeholder="Your password"
-                autoComplete="current-password"
-                error={passwordForm.formState.errors.password?.message}
-              />
-            </div>
-            <Button type="submit" variant="primary" size="lg" className="w-full" disabled={loading}>
-              {loading ? "Signing in…" : "Login"}
-            </Button>
-          </form>
-        )}
+              <Button type="submit" variant="primary" size="lg" className="w-full" disabled={loading}>
+                {loading ? "Sending OTP…" : "Send OTP"}
+              </Button>
+            </form>
+          ) : (
+            <form onSubmit={passwordForm.handleSubmit(onPasswordSubmit)} className="space-y-4">
+              <div>
+                <label className="label-caps mb-2 block text-muted-foreground">Phone or email</label>
+                <Input
+                  {...passwordForm.register("identifier")}
+                  placeholder="Phone or email"
+                  autoComplete="username"
+                  error={passwordForm.formState.errors.identifier?.message}
+                />
+              </div>
+              <div>
+                <div className="mb-2 flex items-center justify-between">
+                  <label className="label-caps text-muted-foreground">Password</label>
+                  <Link href={ROUTES.forgotPassword} className="text-xs text-accent hover:underline">
+                    Forgot password?
+                  </Link>
+                </div>
+                <Input
+                  {...passwordForm.register("password")}
+                  type="password"
+                  placeholder="Your password"
+                  autoComplete="current-password"
+                  error={passwordForm.formState.errors.password?.message}
+                />
+              </div>
+              <Button type="submit" variant="primary" size="lg" className="w-full" disabled={loading}>
+                {loading ? "Signing in…" : "Login"}
+              </Button>
+            </form>
+          )}
+        </div>
 
         <p className="mt-6 text-center text-sm text-muted-foreground">
           New to Closiq?{" "}
@@ -188,11 +190,9 @@ export default function LoginPage() {
             Create account
           </Link>
         </p>
-        {mode === "otp" && (
-          <p className="mt-2 text-center text-xs text-muted-foreground">
-            OTP is sent to your mobile and email when available
-          </p>
-        )}
+        <p className="mt-2 min-h-8 text-center text-xs text-muted-foreground">
+          {mode === "otp" ? "OTP is sent to your mobile and email when available" : "\u00a0"}
+        </p>
       </CardContent>
     </Card>
   );

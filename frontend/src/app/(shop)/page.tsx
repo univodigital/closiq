@@ -71,7 +71,7 @@ export default function HomePage() {
       </section>
 
       <Container className="py-14 md:py-16">
-        <ListingDateBar className="mb-10 max-w-md rounded-sm border border-border bg-card p-5 shadow-sm" />
+        <ListingDateBar className="mb-10 w-full max-w-md rounded-sm border border-border bg-card p-5 shadow-sm" />
         <div className="mb-8 flex items-end justify-between">
           <h2 className="text-2xl md:text-3xl">Shop by occasion</h2>
         </div>
