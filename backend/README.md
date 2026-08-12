@@ -36,10 +36,14 @@ Spring Boot 3 modular monolith for the Closiq clothing rental marketplace.
 ## Quick Start
 
 ```bash
-# Start infrastructure
+# Start infrastructure (local Postgres + Redis)
 docker compose up -d
 
-# Run backend
+# Copy dev profile template (first time only)
+cp src/main/resources/application-dev.properties.example \
+   src/main/resources/application-dev.properties
+
+# Run backend (dev profile is default)
 cd backend
 mvn spring-boot:run
 ```
@@ -48,6 +52,10 @@ API base URL: `http://localhost:8080/api/v1`
 Swagger UI: `http://localhost:8080/swagger-ui.html`
 
 ## Environment Variables
+
+See **[Dev deployment (GCP + Upstash + Supabase)](docs/DEV-DEPLOYMENT.md)** for the full `dev` profile setup, migration guide, and Cloud Run env var reference.
+
+Copy `src/main/resources/application-dev.properties.example` → `application-dev.properties` (gitignored) before running locally.
 
 | Variable | Default | Description |
 |---|---|---|

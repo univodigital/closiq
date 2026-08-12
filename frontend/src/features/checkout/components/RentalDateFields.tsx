@@ -28,9 +28,9 @@ export function RentalDateFields({
   const minEnd = start || today;
 
   return (
-    <div className={className}>
-      <div className="grid grid-cols-2 gap-3">
-        <div>
+    <div className={cn("min-w-0", className)}>
+      <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
+        <div className="min-w-0">
           <label className="label-caps mb-2 block text-muted-foreground">
             Delivery{required ? " *" : ""}
           </label>
@@ -41,12 +41,12 @@ export function RentalDateFields({
             value={start}
             onChange={(e) => onStartChange(e.target.value)}
             className={cn(
-              "h-11 w-full rounded-sm border bg-card px-3 text-sm text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-background",
+              "h-11 min-w-0 w-full max-w-full rounded-sm border bg-card px-2 text-sm text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-background sm:px-3",
               error && !start ? "border-destructive" : "border-border",
             )}
           />
         </div>
-        <div>
+        <div className="min-w-0">
           <label className="label-caps mb-2 block text-muted-foreground">
             Return{required ? " *" : ""}
           </label>
@@ -57,7 +57,7 @@ export function RentalDateFields({
             value={end}
             onChange={(e) => onEndChange(e.target.value)}
             className={cn(
-              "h-11 w-full rounded-sm border bg-card px-3 text-sm text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-background",
+              "h-11 min-w-0 w-full max-w-full rounded-sm border bg-card px-2 text-sm text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-background sm:px-3",
               error && !end ? "border-destructive" : "border-border",
             )}
           />

@@ -86,6 +86,8 @@ class AuthServiceTest {
 
     @Test
     void register_normalizesPhone() {
+        when(userRepository.existsByPhoneAndPhoneVerifiedTrueAndDeletedAtIsNull("+919876543210"))
+                .thenReturn(false);
         when(otpService.createSession(eq("+919876543210"), eq(OtpPurpose.REGISTER), eq(null)))
                 .thenReturn(session);
         when(otpService.getExpirySeconds()).thenReturn(300);
@@ -95,6 +97,19 @@ class AuthServiceTest {
 
         assertThat(response.getPhone()).isEqualTo("+919876543210");
         assertThat(response.getResendAvailableInSeconds()).isEqualTo(58);
+    }
+
+    @Test
+    void register_existingPhone_rejectedBeforeOtp() {
+        when(userRepository.existsByPhoneAndPhoneVerifiedTrueAndDeletedAtIsNull("+919876543210"))
+                .thenReturn(true);
+
+        assertThatThrownBy(() -> authService.register("+919876543210", "new@example.com"))
+                .isInstanceOf(ClosiqException.class)
+                .extracting(ex -> ((ClosiqException) ex).getErrorCode())
+                .isEqualTo(ErrorCode.ALREADY_EXISTS);
+
+        verify(otpService, never()).createSession(any(), any(), any());
     }
 
     @Test

@@ -3,13 +3,14 @@
 import { useRentalDates } from "@/providers/RentalDatesProvider";
 import { RentalDateFields } from "@/features/checkout/components/RentalDateFields";
 import { Button } from "@/components/ui/button";
+import { cn } from "@/lib/utils";
 
 /** Shared date picker for product listing surfaces. */
 export function ListingDateBar({ className }: { className?: string }) {
   const { dates, setDates, clearDates, dateError } = useRentalDates();
 
   return (
-    <div className={className} id="listing-date-bar">
+    <div className={cn("min-w-0 overflow-hidden", className)} id="listing-date-bar">
       <p className="label-caps mb-3 text-muted-foreground">Your rental dates</p>
       <RentalDateFields
         start={dates?.start ?? ""}
