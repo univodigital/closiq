@@ -1,6 +1,6 @@
-# Dev deployment — GCP Cloud Run + Upstash Redis + Supabase
+# Dev deployment — AWS + Upstash Redis + Supabase
 
-Deploy the Closiq backend on **GCP Cloud Run** (`asia-south1` / Mumbai) using the **`dev` Spring profile**, a dedicated **Supabase** dev database, and **Upstash Redis** (free tier, AWS Mumbai).
+Deploy the Closiq backend on **AWS** (`ap-south-1` / Mumbai) using the **`dev` Spring profile**, a dedicated **Supabase** dev database, and **Upstash Redis** (free tier, AWS Mumbai).
 
 Frontend stays on Vercel: `https://closiq-three.vercel.app`
 
@@ -12,10 +12,20 @@ Frontend stays on Vercel: `https://closiq-three.vercel.app`
 Vercel (closiq-three.vercel.app)
         │  NEXT_PUBLIC_API_URL
         ▼
-GCP Cloud Run (Spring Boot, profile=dev, asia-south1)
+AWS (ap-south-1 Mumbai)
+  ├── Option A: EC2 + Docker          ← recommended (always-on, free tier eligible)
+  └── Option B: App Runner + ECR      ← simpler managed containers
+        │
         ├── Supabase Postgres (dev project, pooler :6543)
         └── Upstash Redis (AWS ap-south-1, TLS)
 ```
+
+| Component | Service | Region |
+|-----------|---------|--------|
+| Frontend | Vercel | Edge |
+| Backend | **AWS EC2** or **App Runner** | `ap-south-1` |
+| Database | Supabase | `ap-south-1` |
+| Redis | Upstash | AWS `ap-south-1` |
 
 ---
 
@@ -33,7 +43,7 @@ cp src/main/resources/application-dev.properties.example \
 
 Edit `application-dev.properties` or export env vars (env vars override properties).
 
-Optional: copy env reference for Cloud Run:
+Optional: copy env reference for AWS deployment:
 
 ```bash
 cp .env.dev.example .env.dev
@@ -48,12 +58,6 @@ cp .env.dev.example .env.dev
 spring.profiles.active=dev
 ```
 
-Override locally if needed:
-
-```bash
-export SPRING_PROFILES_ACTIVE=dev
-```
-
 ---
 
 ## 2. Supabase dev database
@@ -65,254 +69,258 @@ export SPRING_PROFILES_ACTIVE=dev
    - IPv4
    - Port **6543**
 4. Note:
-   - Host: `aws-0-ap-south-1.pooler.supabase.com` (may vary slightly per project)
+   - Host: `aws-0-ap-south-1.pooler.supabase.com` (may vary per project)
    - User: `postgres.<project-ref>`
    - Database: `postgres`
 
-### 2.1 Flyway migrations — DDL only (no seed data)
+### 2.1 Database schema — DDL only (no seed data)
 
-Flyway runs automatically on backend startup (`spring.flyway.enabled=true`).
-
-For a **fresh empty dev database**, apply **schema only** first. Do **not** run seed/data scripts until you want demo catalog users and products.
-
-#### DDL migrations (run these — schema + safe backfills on empty DB)
-
-| Version | File | Purpose |
-|--------:|------|---------|
-| V1 | `V1__identity_schema.sql` | Auth, users, OTP, refresh tokens |
-| V2 | `V2__user_module_schema.sql` | Profiles, addresses, wishlist |
-| V3 | `V3__seller_module_schema.sql` | Seller applications, KYC, wallet |
-| V4 | `V4__catalog_schema.sql` | Categories, products, variants, images |
-| V6 | `V6__inventory_schema.sql` | Inventory items, reservations, blocks |
-| V8 | `V8__booking_schema.sql` | Bookings, checkout sessions |
-| V9 | `V9__payment_schema.sql` | Payments, coupons, refunds |
-| V10 | `V10__shipment_schema.sql` | Shipments, webhooks, events |
-| V11 | `V11__review_schema.sql` | Reviews |
-| V12 | `V12__notification_schema.sql` | Notifications |
-| V13 | `V13__seller_product_idempotency.sql` | Seller product idempotency |
-| V14 | `V14__seller_booking_fields.sql` | Seller booking columns |
-| V15 | `V15__audit_columns.sql` | Audit columns |
-| V16 | `V16__currency_code_varchar.sql` | Currency column type |
-| V17 | `V17__business_identifiers.sql` | Product/user codes, sequences (backfill OK on empty DB) |
-| V19 | `V19__media_asset_storage_provider.sql` | Media storage provider column |
-| V20 | `V20__address_phone.sql` | Address phone column |
-| V27 | `V27__user_profile_gender.sql` | Profile gender column |
-| V28 | `V28__account_security.sql` | Account security |
-| V29 | `V29__cart_and_checkout_batch.sql` | Cart, checkout batch |
-| V30 | `V30__refund_idempotency.sql` | Refund idempotency |
-| V31 | `V31__booking_inspection.sql` | Booking inspection |
-| V32 | `V32__category_name_unique.sql` | Category unique name |
-| V33 | `V33__checkout_batch_currency_varchar.sql` | Checkout batch currency |
-
-#### Mixed migration — schema part required, seed part optional
-
-| Version | File | Notes |
-|--------:|------|-------|
-| V21 | `V21__product_audience.sql` | **Required DDL:** `audience`, `garment_type` columns. **Optional data:** INSERTs for men/kids demo products (requires V5 categories). On empty DB, run only the `ALTER TABLE` / `UPDATE` / `NOT NULL` lines, or skip entire file until you run V5. |
-
-#### Seed / data migrations — skip for now
-
-| Version | File | Purpose |
-|--------:|------|---------|
-| V5 | `V5__catalog_seed.sql` | Demo categories, brands, products |
-| V7 | `V7__inventory_seed.sql` | Demo inventory + sample booking |
-| V22 | `V22__category_occasion_images.sql` | Updates category images (needs V5) |
-| V23 | `V23__fix_broken_product_images.sql` | Data fix for seed products |
-| V24 | `V24__inventory_men_kids_seed.sql` | Inventory for V21 products |
-| V25 | `V25__seller_user_seed.sql` | Demo seller/customer users for OTP testing |
-
-All migration files live in:
+For a **fresh empty dev database**, run the consolidated DDL file:
 
 ```
-backend/src/main/resources/db/migration/
+backend/docs/dev-ddl/closiq-dev-schema.sql
 ```
 
-#### Applying DDL only on a fresh Supabase dev DB
+#### Quick apply (Supabase SQL Editor)
 
-**Option A — Let Flyway run on first Cloud Run deploy (simplest)**
+1. Supabase → **SQL Editor** → New query
+2. Paste the contents of `backend/docs/dev-ddl/closiq-dev-schema.sql`
+3. Run
+4. Set in `application-dev.properties` (or AWS env):
 
-Default Flyway runs **all** migrations including seeds. For a truly empty schema-only dev DB, temporarily **rename** seed files before first deploy (e.g. `V5__catalog_seed.sql.skip`), deploy, then restore names and mark those versions ignored — or use Option B.
-
-**Option B — Manual SQL in Supabase (DDL only, recommended for clean dev DB)**
-
-1. Supabase → **SQL Editor**
-2. Run each **DDL** file above in version order (V1 → V33, skip V5, V7, V22–V25; handle V21 ALTER parts only if skipping seed INSERTs)
-3. Insert into `flyway_schema_history` so Flyway skips re-applying (or set `spring.flyway.baseline-on-migrate=true` and baseline version **33** after manual apply)
-
-**Option C — Local Flyway with targets (skip seeds by jumping versions)**
-
-```bash
-cd backend
-# Requires local Maven + env vars pointing at Supabase dev
-mvn flyway:migrate -Dflyway.target=4    # through catalog schema
-mvn flyway:migrate -Dflyway.target=6    # skip V5 seed
-mvn flyway:migrate -Dflyway.target=20   # skip V7, V21–V22 if not yet applied
-# Continue through V33 as needed — see DDL table above
+```properties
+spring.flyway.baseline-on-migrate=true
+spring.flyway.baseline-version=33
 ```
 
-> **Do not run** V5, V7, V22, V23, V24, V25 until you want demo data.
+Future Flyway migrations (V34+) apply automatically on backend startup.
+
+#### What's included vs excluded
+
+| Included | Excluded (run later for demo data) |
+|----------|-------------------------------------|
+| V1–V4, V6, V8–V21 (schema), V26–V33 | V5, V7, V22, V23, V24, V25 |
+| Reference: roles, pincodes, logistics provider | Demo catalog, inventory, seller users |
+
+See [`dev-ddl/README.md`](dev-ddl/README.md) for details.
 
 ---
 
 ## 3. Upstash Redis (dev)
 
-Already created: **`closiq-redis`**, AWS **Mumbai (`ap-south-1`)**, **Free** plan.
+Database: **`closiq-redis`**, AWS **Mumbai (`ap-south-1`)**, **Free** plan.
 
-From [Upstash Console](https://console.upstash.com) → database **Details**:
+From [Upstash Console](https://console.upstash.com) → **Details**:
 
-| Upstash field | Env var |
-|---------------|---------|
-| Endpoint | `REDIS_HOST` |
-| Port (6379) | `REDIS_PORT` |
-| Password | `REDIS_PASSWORD` |
-| TLS enabled | `REDIS_SSL=true` |
+| Upstash field | Env var | Example |
+|---------------|---------|---------|
+| Endpoint | `REDIS_HOST` | `loving-gnat-93714.upstash.io` |
+| Port | `REDIS_PORT` | `6379` |
+| Password | `REDIS_PASSWORD` | *(from console)* |
+| TLS | `REDIS_SSL` | `true` |
 
-Test from your machine ([Upstash getting started](https://upstash.com/docs/redis/overall/getstarted)):
+Test:
 
 ```bash
-redis-cli --tls -a YOUR_PASSWORD -h YOUR_ENDPOINT.upstash.io -p 6379 ping
+redis-cli --tls -u "redis://default:YOUR_PASSWORD@YOUR_ENDPOINT.upstash.io:6379" ping
 # Expected: PONG
 ```
 
-Spring Boot (dev profile) maps these via `application-dev.properties.example`.
+> Upstash REST URL/token (`UPSTASH_REDIS_REST_*`) is **not** used by Spring Boot — use TCP + TLS above.
 
 ---
 
-## 4. GCP Cloud Run setup (step by step)
+## 4. AWS backend deployment
 
-### 4.1 Prerequisites
+AWS requires a billing account on file. New accounts get **12 months free tier** for `t2.micro` / `t3.micro` EC2 (750 hours/month in `ap-south-1`).
 
-- [Google Cloud account](https://cloud.google.com)
-- [gcloud CLI](https://cloud.google.com/sdk/docs/install)
-- Docker (local build) or Cloud Build
+### Choose a deployment option
 
-### 4.2 Create GCP project
+| Option | Best for | Cost (dev) | Always-on |
+|--------|----------|------------|-----------|
+| **A — EC2 + Docker** | Pre-revenue, full control | Free tier → ~₹600–800/mo after | Yes |
+| **B — App Runner + ECR** | Managed containers, less ops | ~$5–15/mo | Yes (min capacity) |
 
-```bash
-gcloud auth login
-gcloud projects create closiq-dev-YOUR_SUFFIX --name="Closiq Dev"
-gcloud config set project closiq-dev-YOUR_SUFFIX
+---
 
-# Link billing (required for Cloud Run; free tier still applies)
+## 4A. EC2 + Docker (recommended)
 
-gcloud services enable \
-  run.googleapis.com \
-  artifactregistry.googleapis.com \
-  cloudbuild.googleapis.com \
-  secretmanager.googleapis.com
-```
+Run the existing `backend/Dockerfile` on a small EC2 instance in Mumbai.
 
-Region for everything: **`asia-south1`** (Mumbai).
+### 4A.1 Prerequisites
 
-### 4.3 Store secrets in Secret Manager
+- [AWS account](https://aws.amazon.com)
+- [AWS CLI v2](https://docs.aws.amazon.com/cli/latest/userguide/getting-started-install.html) configured (`aws configure`)
+- SSH key pair
 
-```bash
-echo -n "YOUR_SUPABASE_DB_PASSWORD" | gcloud secrets create db-password --data-file=-
-echo -n "YOUR_JWT_SECRET_MIN_256_BITS" | gcloud secrets create jwt-secret --data-file=-
-echo -n "YOUR_UPSTASH_REDIS_PASSWORD" | gcloud secrets create redis-password --data-file=-
-echo -n "YOUR_CLOUDINARY_API_SECRET" | gcloud secrets create cloudinary-api-secret --data-file=-
-echo -n "YOUR_RAZORPAY_KEY_SECRET" | gcloud secrets create razorpay-key-secret --data-file=-
-```
+### 4A.2 Launch EC2 instance
 
-Grant Cloud Run service account access (after first deploy or preemptively):
+**AWS Console → EC2 → Launch instance**
 
-```bash
-PROJECT_NUMBER=$(gcloud projects describe $(gcloud config get-value project) --format='value(projectNumber)')
-SA="${PROJECT_NUMBER}-compute@developer.gserviceaccount.com"
+| Setting | Value |
+|---------|-------|
+| Name | `closiq-backend-dev` |
+| AMI | Ubuntu 24.04 LTS |
+| Instance type | `t3.micro` (free tier eligible) or `t3.small` (1 GiB RAM is tight for Spring Boot — prefer **t3.small** if not on free tier) |
+| Key pair | Create or select |
+| Region | **Asia Pacific (Mumbai) `ap-south-1`** |
 
-for SECRET in db-password jwt-secret redis-password cloudinary-api-secret razorpay-key-secret; do
-  gcloud secrets add-iam-policy-binding "$SECRET" \
-    --member="serviceAccount:${SA}" \
-    --role="roles/secretmanager.secretAccessor"
-done
-```
+**Security group — inbound rules:**
 
-### 4.4 Build and push Docker image
+| Type | Port | Source | Purpose |
+|------|------|--------|---------|
+| SSH | 22 | Your IP | Admin |
+| HTTP | 80 | `0.0.0.0/0` | Caddy/Let's Encrypt |
+| HTTPS | 443 | `0.0.0.0/0` | Public API |
+| Custom TCP | 8081 | Your IP only (optional) | Direct test before HTTPS |
 
-```bash
-cd /path/to/Closiq
+**Storage:** 20 GB gp3 (free tier eligible).
 
-gcloud artifacts repositories create closiq \
-  --repository-format=docker \
-  --location=asia-south1 \
-  --description="Closiq backend images"
+Launch instance and note the **public IP** or attach an **Elastic IP** (recommended — static IP for DNS).
 
-gcloud auth configure-docker asia-south1-docker.pkg.dev
-
-export PROJECT_ID=$(gcloud config get-value project)
-docker build -t asia-south1-docker.pkg.dev/${PROJECT_ID}/closiq/backend:dev-v1 ./backend
-docker push asia-south1-docker.pkg.dev/${PROJECT_ID}/closiq/backend:dev-v1
-```
-
-### 4.5 Deploy to Cloud Run
-
-Replace placeholders (`YOUR_*`) with your values:
+### 4A.3 Install Docker on EC2
 
 ```bash
-export PROJECT_ID=$(gcloud config get-value project)
+ssh -i ~/.ssh/your-key.pem ubuntu@YOUR_EC2_PUBLIC_IP
 
-gcloud run deploy closiq-backend-dev \
-  --image asia-south1-docker.pkg.dev/${PROJECT_ID}/closiq/backend:dev-v1 \
-  --region asia-south1 \
-  --platform managed \
-  --allow-unauthenticated \
-  --port 8081 \
-  --memory 1Gi \
-  --cpu 1 \
-  --min-instances 0 \
-  --max-instances 3 \
-  --timeout 300 \
-  --set-env-vars "\
-SPRING_PROFILES_ACTIVE=dev,\
-SERVER_PORT=8081,\
-DB_HOST=aws-0-ap-south-1.pooler.supabase.com,\
-DB_PORT=6543,\
-DB_NAME=postgres,\
-DB_USER=postgres.YOUR_SUPABASE_PROJECT_REF,\
-DB_POOL_SIZE=3,\
-REDIS_HOST=YOUR_ENDPOINT.upstash.io,\
-REDIS_PORT=6379,\
-REDIS_SSL=true,\
-CORS_ALLOWED_ORIGINS=https://closiq-three.vercel.app,http://localhost:3000,\
-APP_BASE_URL=https://closiq-three.vercel.app,\
-REFRESH_COOKIE_SECURE=false,\
-SUPABASE_PROJECT_NAME=closiq-dev,\
-SUPABASE_REGION=ap-south-1,\
-CLOUDINARY_STUB_ENABLED=false,\
-CLOUDINARY_FOLDER=closiq-dev,\
-RAZORPAY_STUB_ENABLED=true,\
-SHADOWFAX_STUB_ENABLED=true,\
-MAIL_ENABLED=false" \
-  --set-secrets "\
-DB_PASSWORD=db-password:latest,\
-JWT_SECRET=jwt-secret:latest,\
-REDIS_PASSWORD=redis-password:latest,\
-CLOUDINARY_API_SECRET=cloudinary-api-secret:latest,\
-RAZORPAY_KEY_SECRET=razorpay-key-secret:latest"
+sudo apt-get update
+sudo apt-get install -y docker.io docker-compose-v2 git
+sudo usermod -aG docker ubuntu
+# log out and back in
 ```
 
-Non-secret env vars you still set via `--set-env-vars` or Cloud Run console:
+### 4A.4 Deploy backend container
 
-```env
-CLOUDINARY_CLOUD_NAME=your-cloud
-CLOUDINARY_API_KEY=your-key
-RAZORPAY_KEY_ID=rzp_test_xxx
-```
-
-### 4.6 Verify deployment
+**Option 1 — Build on the server**
 
 ```bash
-export SERVICE_URL=$(gcloud run services describe closiq-backend-dev \
-  --region asia-south1 --format='value(status.url)')
+git clone https://github.com/YOUR_ORG/Closiq.git
+cd Closiq/backend
 
-curl "${SERVICE_URL}/actuator/health"
-curl "${SERVICE_URL}/api/v1/categories"
+# Create env file from template
+cp .env.dev.example .env.dev
+nano .env.dev   # fill in all secrets (see §6)
+
+docker build -t closiq-backend:dev .
+docker run -d \
+  --name closiq-backend \
+  --env-file .env.dev \
+  -p 8081:8081 \
+  --restart unless-stopped \
+  closiq-backend:dev
 ```
 
-Check Cloud Run logs if Flyway fails:
+**Option 2 — Push to ECR, pull on EC2** (same image as App Runner path in §4B)
+
+### 4A.5 HTTPS with Caddy (free TLS)
+
+Install Caddy on EC2 to terminate HTTPS and proxy to port 8081:
 
 ```bash
-gcloud run services logs read closiq-backend-dev --region asia-south1 --limit 50
+sudo apt install -y debian-keyring debian-archive-keyring apt-transport-https curl
+curl -1sLf 'https://dl.cloudsmith.io/public/caddy/stable/gpg.key' | sudo gpg --dearmor -o /usr/share/keyrings/caddy-stable-archive-keyring.gpg
+curl -1sLf 'https://dl.cloudsmith.io/public/caddy/stable/debian.deb.txt' | sudo tee /etc/apt/sources.list.d/caddy-stable.list
+sudo apt update && sudo apt install -y caddy
+```
+
+`/etc/caddy/Caddyfile`:
+
+```
+api.yourdomain.com {
+    reverse_proxy localhost:8081
+}
+```
+
+Or for quick dev testing without a domain, use the EC2 public IP on port 8081 (HTTP only — set `REFRESH_COOKIE_SECURE=false`).
+
+```bash
+sudo systemctl reload caddy
+```
+
+Point DNS `A` record → EC2 Elastic IP.
+
+### 4A.6 Verify
+
+```bash
+curl http://localhost:8081/actuator/health
+curl https://api.yourdomain.com/actuator/health
+curl https://api.yourdomain.com/api/v1/categories
+```
+
+View logs:
+
+```bash
+docker logs -f closiq-backend
+```
+
+---
+
+## 4B. App Runner + ECR (managed containers)
+
+Simpler than EC2 if you prefer not to manage the VM. Requires ECR + App Runner (small monthly cost).
+
+### 4B.1 Create ECR repository
+
+```bash
+aws configure   # set region ap-south-1
+export AWS_REGION=ap-south-1
+export AWS_ACCOUNT_ID=$(aws sts get-caller-identity --query Account --output text)
+
+aws ecr create-repository \
+  --repository-name closiq/backend \
+  --region $AWS_REGION
+```
+
+### 4B.2 Build and push Docker image
+
+```bash
+cd /path/to/Closiq/backend
+
+aws ecr get-login-password --region $AWS_REGION | \
+  docker login --username AWS --password-stdin \
+  ${AWS_ACCOUNT_ID}.dkr.ecr.${AWS_REGION}.amazonaws.com
+
+docker build -t closiq-backend:dev .
+docker tag closiq-backend:dev \
+  ${AWS_ACCOUNT_ID}.dkr.ecr.${AWS_REGION}.amazonaws.com/closiq/backend:dev-v1
+docker push ${AWS_ACCOUNT_ID}.dkr.ecr.${AWS_REGION}.amazonaws.com/closiq/backend:dev-v1
+```
+
+### 4B.3 Create App Runner service
+
+**AWS Console → App Runner → Create service**
+
+| Setting | Value |
+|---------|-------|
+| Source | Container registry → Amazon ECR |
+| Image | `closiq/backend:dev-v1` |
+| Port | `8081` |
+| CPU / Memory | 1 vCPU, 2 GB (Spring Boot needs ≥1 GB) |
+| Environment variables | From §6 (non-secrets in plain env) |
+| Secrets | Use **AWS Secrets Manager** or **SSM Parameter Store** for passwords |
+
+CLI example (after creating an App Runner access role — see AWS docs):
+
+```bash
+# Store secrets in SSM Parameter Store (Standard tier — free)
+aws ssm put-parameter --name /closiq/dev/DB_PASSWORD --type SecureString --value "YOUR_SUPABASE_PASSWORD"
+aws ssm put-parameter --name /closiq/dev/JWT_SECRET --type SecureString --value "YOUR_JWT_SECRET"
+aws ssm put-parameter --name /closiq/dev/REDIS_PASSWORD --type SecureString --value "YOUR_UPSTASH_PASSWORD"
+```
+
+In App Runner env config, reference SSM secrets per [AWS App Runner docs](https://docs.aws.amazon.com/apprunner/latest/dg/manage-configure.html).
+
+**Health check:** path `/actuator/health`, port `8081`.
+
+After deploy, note the App Runner URL: `https://xxxxx.ap-south-1.awsapprunner.com`
+
+### 4B.4 Redeploy on code changes
+
+```bash
+docker build -t closiq-backend:dev .
+docker tag closiq-backend:dev ${AWS_ACCOUNT_ID}.dkr.ecr.${AWS_REGION}.amazonaws.com/closiq/backend:dev-v2
+docker push ${AWS_ACCOUNT_ID}.dkr.ecr.${AWS_REGION}.amazonaws.com/closiq/backend:dev-v2
+# Update App Runner service to new tag (Console or aws apprunner update-service)
 ```
 
 ---
@@ -323,77 +331,94 @@ gcloud run services logs read closiq-backend-dev --region asia-south1 --limit 50
 
 | Variable | Value |
 |----------|-------|
-| `NEXT_PUBLIC_API_URL` | `https://YOUR-CLOUD-RUN-URL/api/v1` |
+| `NEXT_PUBLIC_API_URL` | `https://api.yourdomain.com/api/v1` or App Runner URL + `/api/v1` |
 | `NEXT_PUBLIC_RAZORPAY_KEY_ID` | Razorpay test key (if not using stub) |
 
 Redeploy Vercel after changing env vars.
 
+Set backend CORS to match:
+
+```env
+CORS_ALLOWED_ORIGINS=https://closiq-three.vercel.app,http://localhost:3000
+```
+
 ---
 
 ## 6. Complete environment variable reference (dev profile)
+
+Use in `.env.dev` (EC2 Docker), App Runner env config, or `application-dev.properties`.
 
 ### Required
 
 | Variable | Description | Example |
 |----------|-------------|---------|
 | `SPRING_PROFILES_ACTIVE` | Spring profile | `dev` |
-| `SERVER_PORT` | HTTP port (Cloud Run must match container port) | `8081` |
+| `SERVER_PORT` | HTTP port | `8081` |
 | `DB_HOST` | Supabase pooler host | `aws-0-ap-south-1.pooler.supabase.com` |
 | `DB_PORT` | Supabase pooler port | `6543` |
 | `DB_NAME` | Database name | `postgres` |
 | `DB_USER` | Supabase user | `postgres.xxxxxxxxx` |
 | `DB_PASSWORD` | Supabase password | *(secret)* |
 | `DB_POOL_SIZE` | Hikari pool size | `3` |
-| `REDIS_HOST` | Upstash endpoint | `xxx.upstash.io` |
+| `REDIS_HOST` | Upstash endpoint | `loving-gnat-93714.upstash.io` |
 | `REDIS_PORT` | Redis port | `6379` |
 | `REDIS_PASSWORD` | Upstash password | *(secret)* |
 | `REDIS_SSL` | TLS for Upstash | `true` |
 | `JWT_SECRET` | JWT signing key (≥256 bits) | *(secret)* |
-| `CORS_ALLOWED_ORIGINS` | Allowed frontend origins (comma-separated, no trailing slash) | `https://closiq-three.vercel.app,http://localhost:3000` |
+| `CORS_ALLOWED_ORIGINS` | Frontend origins (comma-separated, no trailing slash) | `https://closiq-three.vercel.app,http://localhost:3000` |
 
 ### Recommended
 
 | Variable | Description | Dev default |
 |----------|-------------|-------------|
 | `APP_BASE_URL` | Links in emails/notifications | `https://closiq-three.vercel.app` |
-| `REFRESH_COOKIE_SECURE` | HTTPS-only refresh cookie | `false` (cross-origin dev); `true` with custom domain |
+| `REFRESH_COOKIE_SECURE` | HTTPS-only refresh cookie | `false` until HTTPS domain; `true` with `api.yourdomain.com` |
 | `SUPABASE_PROJECT_NAME` | Metadata | `closiq-dev` |
 | `SUPABASE_REGION` | Metadata | `ap-south-1` |
 
-### Cloudinary (real uploads)
+### Flyway (after manual DDL apply)
+
+| Variable | Value |
+|----------|-------|
+| `SPRING_FLYWAY_BASELINE_ON_MIGRATE` | `true` |
+| `SPRING_FLYWAY_BASELINE_VERSION` | `33` |
+
+Or in `application-dev.properties`:
+
+```properties
+spring.flyway.baseline-on-migrate=true
+spring.flyway.baseline-version=33
+```
+
+### Cloudinary
 
 | Variable | Description |
 |----------|-------------|
 | `CLOUDINARY_CLOUD_NAME` | Cloud name |
 | `CLOUDINARY_API_KEY` | API key |
 | `CLOUDINARY_API_SECRET` | API secret *(secret)* |
-| `CLOUDINARY_FOLDER` | Upload folder | `closiq-dev` |
-| `CLOUDINARY_STUB_ENABLED` | Skip real uploads | `false` |
-
-`CLOSIQ_CLOUDINARY_*` aliases are also supported.
+| `CLOUDINARY_FOLDER` | `closiq-dev` |
+| `CLOUDINARY_STUB_ENABLED` | `false` |
 
 ### Payments & logistics
 
-| Variable | Description | Dev default |
-|----------|-------------|-------------|
-| `RAZORPAY_KEY_ID` | Razorpay key | test key |
-| `RAZORPAY_KEY_SECRET` | Razorpay secret *(secret)* | |
-| `RAZORPAY_STUB_ENABLED` | Stub gateway | `true` |
-| `SHADOWFAX_WEBHOOK_SECRET` | Webhook HMAC | stub value |
-| `SHADOWFAX_STUB_ENABLED` | Stub logistics | `true` |
+| Variable | Dev default |
+|----------|-------------|
+| `RAZORPAY_KEY_ID` | test key |
+| `RAZORPAY_KEY_SECRET` | *(secret)* |
+| `RAZORPAY_STUB_ENABLED` | `true` |
+| `SHADOWFAX_WEBHOOK_SECRET` | stub value |
+| `SHADOWFAX_STUB_ENABLED` | `true` |
 
 ### Email (optional)
 
-| Variable | Description | Dev default |
-|----------|-------------|-------------|
-| `MAIL_ENABLED` | Send via Brevo | `false` |
-| `BREVO_API_KEY` | Brevo API key | |
-| `BREVO_SENDER_EMAIL` | Sender email | |
-| `MAIL_FROM` | From address | `noreply@closiq.com` |
+| Variable | Dev default |
+|----------|-------------|
+| `MAIL_ENABLED` | `false` |
+| `BREVO_API_KEY` | |
+| `BREVO_SENDER_EMAIL` | |
 
-### Spring Boot direct bindings (optional alternatives)
-
-These work even if not listed in `application-dev.properties`:
+### Spring Boot direct bindings (optional)
 
 ```env
 SPRING_DATA_REDIS_PASSWORD=<same as REDIS_PASSWORD>
@@ -402,49 +427,72 @@ SPRING_DATA_REDIS_SSL_ENABLED=true
 
 ---
 
-## 7. Auth cookies (Vercel + Cloud Run)
+## 7. Storing secrets on AWS
 
-Frontend: `closiq-three.vercel.app`  
-Backend: `*.run.app`  
+| Service | Cost | Use for |
+|---------|------|---------|
+| **SSM Parameter Store** (Standard) | Free | Dev secrets (`SecureString`) |
+| **Secrets Manager** | ~$0.40/secret/mo | Production rotation |
+| **`.env.dev` on EC2** | Free | Simple dev — restrict file permissions (`chmod 600`) |
 
-Different sites → refresh token cookie (`SameSite=Strict`) may not renew after 15 minutes.
+Example SSM paths:
 
-Dev mitigations:
-
-1. Set `REFRESH_COOKIE_SECURE=false` (already in dev template) — still may fail cross-site with Strict
-2. Use **Vercel rewrites** to proxy `/api/v1` to Cloud Run (same-origin)
-3. Later: custom domains `app.closiq.com` + `api.closiq.com`
+```
+/closiq/dev/DB_PASSWORD
+/closiq/dev/JWT_SECRET
+/closiq/dev/REDIS_PASSWORD
+/closiq/dev/CLOUDINARY_API_SECRET
+/closiq/dev/RAZORPAY_KEY_SECRET
+```
 
 ---
 
-## 8. Troubleshooting
+## 8. Auth cookies (Vercel + AWS backend)
+
+Frontend: `closiq-three.vercel.app`  
+Backend: `api.yourdomain.com` or `*.awsapprunner.com`
+
+Cross-origin refresh cookies (`SameSite=Strict`) may fail after ~15 minutes unless:
+
+1. Use subdomains on same site: `app.closiq.com` + `api.closiq.com`, or
+2. **Vercel rewrite** proxy for `/api/v1` → AWS backend (same-origin), or
+3. Code change to `SameSite=None; Secure` (future)
+
+Dev: keep `REFRESH_COOKIE_SECURE=false` only for HTTP testing — use HTTPS in production.
+
+---
+
+## 9. Troubleshooting
 
 | Symptom | Likely cause | Fix |
 |---------|--------------|-----|
-| 60s+ first request | Cloud Run cold start + JVM | Normal on free tier; set `--min-instances 1` (costs $) |
-| Health UP, booking fails | Redis env wrong | Check `REDIS_SSL=true`, password, Upstash endpoint |
-| Flyway fails on deploy | Seed migration without deps | Apply DDL-only path (§2.1) |
-| CORS error in browser | Origin mismatch | Exact match in `CORS_ALLOWED_ORIGINS` |
-| 401 after 15 min | Cross-site refresh cookie | See §7 |
-| Supabase connection timeout | Wrong pooler port | Use **6543**, not 5432 |
+| Container OOM / slow start | `t3.micro` (1 GB RAM) too small | Use `t3.small` (2 GB) or App Runner 2 GB |
+| Health UP, booking fails | Redis env wrong | `REDIS_SSL=true`, correct Upstash password |
+| Flyway fails on deploy | Seeds on empty DB | Run `closiq-dev-schema.sql` + baseline V33 |
+| CORS error | Origin mismatch | Exact match in `CORS_ALLOWED_ORIGINS` |
+| 401 after 15 min | Cross-site cookie | See §8 |
+| Supabase timeout | Wrong port | Use pooler **6543** |
+| EC2 unreachable | Security group | Open 443 (and 22 from your IP) |
 
 ---
 
-## 9. File reference
+## 10. File reference
 
 | File | Purpose |
 |------|---------|
-| `src/main/resources/application-dev.properties.example` | Committed template — copy to gitignored `application-dev.properties` |
-| `backend/.env.dev.example` | Env var checklist for Cloud Run |
-| `backend/.gitignore` | Ignores `application-dev.properties`, `.env.dev` |
+| `src/main/resources/application-dev.properties.example` | Template — copy to gitignored `application-dev.properties` |
+| `backend/.env.dev.example` | Env checklist for EC2 Docker / App Runner |
 | `backend/Dockerfile` | Container build (Java 21, port 8081) |
-| `src/main/resources/db/migration/V*.sql` | Flyway migrations |
+| `backend/docs/dev-ddl/closiq-dev-schema.sql` | Consolidated DDL for Supabase |
+| `backend/.gitignore` | Ignores `application-dev.properties`, `.env.dev` |
 
 ---
 
-## 10. Next steps after infra is up
+## 11. Next steps
 
-1. Confirm `/actuator/health` → `UP`
-2. Register/login from Vercel (OTP in logs if `closiq.otp.console-log-enabled=true`)
-3. When you need demo catalog data, run seed migrations V5, V7, V21 (INSERTs), V22–V25
-4. Add custom domain on Cloud Run when ready for production-like auth
+1. Run `closiq-dev-schema.sql` in Supabase dev project
+2. Set `spring.flyway.baseline-version=33`
+3. Deploy backend on **EC2** or **App Runner** (Mumbai)
+4. Point Vercel `NEXT_PUBLIC_API_URL` at your AWS URL
+5. Verify `/actuator/health` and login flow
+6. Run seed migrations (V5, V7, V25) when you want demo data

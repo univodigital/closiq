@@ -53,7 +53,7 @@ Swagger UI: `http://localhost:8080/swagger-ui.html`
 
 ## Environment Variables
 
-See **[Dev deployment (GCP + Upstash + Supabase)](docs/DEV-DEPLOYMENT.md)** for the full `dev` profile setup, migration guide, and Cloud Run env var reference.
+See **[Dev deployment (AWS + Upstash + Supabase)](docs/DEV-DEPLOYMENT.md)** for the full `dev` profile setup, migration guide, and AWS env var reference.
 
 Copy `src/main/resources/application-dev.properties.example` → `application-dev.properties` (gitignored) before running locally.
 
