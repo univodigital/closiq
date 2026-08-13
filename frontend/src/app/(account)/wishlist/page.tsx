@@ -1,7 +1,5 @@
 "use client";
 
-import { useEffect } from "react";
-import { useRouter } from "next/navigation";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { Heart } from "lucide-react";
 import { toast } from "sonner";
@@ -14,15 +12,8 @@ import { ROUTES } from "@/shared/constants/routes";
 import { useAuth } from "@/providers/AuthProvider";
 
 export default function WishlistPage() {
-  const router = useRouter();
   const { isAuthenticated, isLoading: authLoading } = useAuth();
   const qc = useQueryClient();
-
-  useEffect(() => {
-    if (!authLoading && !isAuthenticated) {
-      router.replace(`${ROUTES.login}?returnUrl=${encodeURIComponent(ROUTES.wishlist)}`);
-    }
-  }, [authLoading, isAuthenticated, router]);
 
   const { data, isLoading } = useQuery({
     queryKey: ["wishlist"],

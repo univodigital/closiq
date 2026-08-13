@@ -187,6 +187,7 @@ class AuthServiceTest {
         when(otpSessionRepository.findById(sessionId)).thenReturn(Optional.of(session));
         when(userRepository.findByPhoneAndDeletedAtIsNull("+919876543210")).thenReturn(Optional.empty());
         when(userService.usernameExists("new_user")).thenReturn(false);
+        when(userRepository.findByEmailIgnoreCaseAndDeletedAtIsNull("new@example.com")).thenReturn(Optional.empty());
         when(hashUtils.hashPassword("Password1")).thenReturn("hash");
         when(userService.createUserWithUsername(
                 eq("+919876543210"), eq("new_user"), eq("hash"), eq("new@example.com"),

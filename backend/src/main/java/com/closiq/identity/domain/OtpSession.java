@@ -57,6 +57,9 @@ public class OtpSession {
     @Column(name = "locked_until")
     private Instant lockedUntil;
 
+    @Column(name = "delivery_email", length = 255)
+    private String deliveryEmail;
+
     @Column(name = "created_at", nullable = false, updatable = false)
     private Instant createdAt;
 

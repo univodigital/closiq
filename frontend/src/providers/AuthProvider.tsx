@@ -12,7 +12,7 @@ import type { User, UserRole } from "@/shared/types";
 import { authService } from "@/features/auth/services";
 import type { RegistrationProfile, VerifyOtpResult } from "@/features/auth/services/auth.service";
 import { fetchUserAddresses, fetchUserProfile } from "@/features/user/services";
-import { SESSION_COOKIE } from "@/shared/constants/routes";
+import { setSessionCookie } from "@/lib/session-cookie";
 
 interface AuthContextValue {
   user: User | null;
@@ -30,15 +30,6 @@ interface AuthContextValue {
 }
 
 const AuthContext = createContext<AuthContextValue | null>(null);
-
-function setSessionCookie(active: boolean) {
-  if (typeof document === "undefined") return;
-  if (active) {
-    document.cookie = `${SESSION_COOKIE}=1; path=/; max-age=2592000; SameSite=Lax`;
-  } else {
-    document.cookie = `${SESSION_COOKIE}=; path=/; max-age=0; SameSite=Lax`;
-  }
-}
 
 export function AuthProvider({ children }: { children: React.ReactNode }) {
   const [user, setUser] = useState<User | null>(null);

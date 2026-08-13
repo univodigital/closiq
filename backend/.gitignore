@@ -8,6 +8,9 @@ target/
 src/main/resources/application-test.properties
 src/main/resources/application-dev.properties
 .env.dev
+
+# Local-only Flyway seed (dev admin user); copy from *.example
+src/main/resources/db/migration/V34__admin_user_seed.sql
 .idea/
 *.iml
 .classpath

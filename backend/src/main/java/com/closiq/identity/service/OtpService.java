@@ -41,6 +41,8 @@ public class OtpService {
         String otp = hashUtils.generateNumericOtp(properties.getOtp().getLength());
         Instant expiresAt = Instant.now().plusSeconds(properties.getOtp().getExpirySeconds());
 
+        String normalizedEmail = email != null && !email.isBlank() ? email.trim().toLowerCase() : null;
+
         OtpSession session = OtpSession.builder()
                 .id(IdGenerator.uuidV7())
                 .phone(phone)
@@ -50,6 +52,7 @@ public class OtpService {
                 .resendCount((short) 0)
                 .status(OtpSessionStatus.PENDING)
                 .expiresAt(expiresAt)
+                .deliveryEmail(normalizedEmail)
                 .build();
 
         otpSessionRepository.save(session);
@@ -95,7 +98,7 @@ public class OtpService {
         markResendCooldown(session.getId());
 
         try {
-            otpSender.sendOtp(session.getPhone(), null, otp, session.getPurpose().name());
+            otpSender.sendOtp(session.getPhone(), session.getDeliveryEmail(), otp, session.getPurpose().name());
         } catch (Exception ex) {
             log.warn("OTP resend delivery failed for {} ({}): {}",
                     session.getPhone(), session.getPurpose(), ex.getMessage());

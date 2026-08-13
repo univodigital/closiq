@@ -39,6 +39,7 @@ public class VerifyOtpRequest {
         @Pattern(regexp = "^(?=.*[A-Z])(?=.*\\d).+$", message = "Password must contain at least one uppercase letter and one digit")
         String password;
 
+        @NotBlank(message = "Email is required")
         @Email(message = "Email must be valid")
         String email;
 

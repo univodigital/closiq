@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
 import type { NextRequest } from "next/server";
+import { getSafeReturnUrl } from "@/lib/safe-return-url";
 import { SESSION_COOKIE } from "@/shared/constants/routes";
 
 const protectedPrefixes = ["/wishlist", "/orders", "/account", "/profile", "/checkout"];
@@ -38,9 +39,13 @@ export function proxy(request: NextRequest) {
     return NextResponse.redirect(url);
   }
 
+  if (pathname === "/login" && hasSession) {
+    const returnUrl = getSafeReturnUrl(request.nextUrl.searchParams.get("returnUrl"));
+    return NextResponse.redirect(new URL(returnUrl, request.url));
+  }
+
   if (
-    (pathname === "/login"
-      || pathname.startsWith("/signup")
+    (pathname.startsWith("/signup")
       || pathname === "/forgot-password"
       || pathname === "/reset-password")
     && hasSession
