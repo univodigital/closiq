@@ -289,18 +289,24 @@ public class AuthService {
             throw new ClosiqException(ErrorCode.ALREADY_EXISTS, "Username is already taken");
         }
 
-        if (profile.getEmail() != null && !profile.getEmail().isBlank()) {
-            userRepository.findByEmailIgnoreCaseAndDeletedAtIsNull(profile.getEmail().trim().toLowerCase())
-                    .ifPresent(existing -> {
-                        throw new ClosiqException(ErrorCode.ALREADY_EXISTS, "Email is already registered");
-                    });
+        String profileEmail = profile.getEmail().trim().toLowerCase();
+        if (session.getDeliveryEmail() != null
+                && !session.getDeliveryEmail().isBlank()
+                && !profileEmail.equals(session.getDeliveryEmail())) {
+            throw new ClosiqException(ErrorCode.VALIDATION_ERROR,
+                    "Email must match the address used during registration");
         }
+
+        userRepository.findByEmailIgnoreCaseAndDeletedAtIsNull(profileEmail)
+                .ifPresent(existing -> {
+                    throw new ClosiqException(ErrorCode.ALREADY_EXISTS, "Email is already registered");
+                });
 
         User user = userService.createUserWithUsername(
                 session.getPhone(),
                 profile.getUsername(),
                 hashUtils.hashPassword(profile.getPassword()),
-                profile.getEmail() != null ? profile.getEmail().trim().toLowerCase() : null,
+                profileEmail,
                 profile.getFirstName().trim(),
                 profile.getLastName().trim(),
                 profile.getGender());

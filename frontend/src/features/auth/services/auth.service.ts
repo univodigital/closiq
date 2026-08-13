@@ -4,7 +4,7 @@ import type { Gender } from "@/shared/types";
 export interface RegistrationProfile {
   username: string;
   password: string;
-  email?: string;
+  email: string;
   firstName: string;
   lastName: string;
   gender: Gender;

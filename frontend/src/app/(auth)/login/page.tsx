@@ -35,7 +35,7 @@ export default function LoginPage() {
   const router = useRouter();
   const searchParams = useSearchParams();
   const returnUrl = getSafeReturnUrl(searchParams.get("returnUrl"));
-  const { login, loginWithPassword } = useAuth();
+  const { login, loginWithPassword, isAuthenticated, isLoading: authLoading } = useAuth();
   const [mode, setMode] = useState<LoginMode>("otp");
   const [loading, setLoading] = useState(false);
 
@@ -56,6 +56,12 @@ export default function LoginPage() {
       passwordForm.setValue("identifier", identifier);
     }
   }, [searchParams, otpForm, passwordForm]);
+
+  useEffect(() => {
+    if (!authLoading && isAuthenticated) {
+      router.replace(returnUrl);
+    }
+  }, [authLoading, isAuthenticated, returnUrl, router]);
 
   const onOtpSubmit = async (data: OtpFormData) => {
     setLoading(true);

@@ -1,3 +1,5 @@
+import { setSessionCookie } from "@/lib/session-cookie";
+
 const ACCESS_TOKEN_KEY = "closiq_access_token";
 
 export function getAccessToken(): string | null {
@@ -9,7 +11,9 @@ export function setAccessToken(token: string | null) {
   if (typeof sessionStorage === "undefined") return;
   if (token) {
     sessionStorage.setItem(ACCESS_TOKEN_KEY, token);
+    setSessionCookie(true);
   } else {
     sessionStorage.removeItem(ACCESS_TOKEN_KEY);
+    setSessionCookie(false);
   }
 }

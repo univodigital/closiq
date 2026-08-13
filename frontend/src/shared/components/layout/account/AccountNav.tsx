@@ -8,22 +8,26 @@ import {
   type AccountNavItem,
   type AccountNavSection,
 } from "@/shared/constants/account-nav";
+import { useAuth } from "@/providers/AuthProvider";
 import { cn } from "@/lib/utils";
 
 function NavLink({
   item,
   pathname,
   onNavigate,
+  prefetch,
 }: {
   item: AccountNavItem;
   pathname: string;
   onNavigate?: () => void;
+  prefetch: boolean;
 }) {
   const active = isAccountNavActive(pathname, item);
 
   return (
     <Link
       href={item.href}
+      prefetch={prefetch}
       onClick={onNavigate}
       aria-current={active ? "page" : undefined}
       className={cn(
@@ -42,10 +46,12 @@ function NavSection({
   section,
   pathname,
   onNavigate,
+  prefetch,
 }: {
   section: AccountNavSection;
   pathname: string;
   onNavigate?: () => void;
+  prefetch: boolean;
 }) {
   return (
     <div>
@@ -53,7 +59,7 @@ function NavSection({
       <ul className="space-y-0.5" role="list">
         {section.items.map((item) => (
           <li key={item.href}>
-            <NavLink item={item} pathname={pathname} onNavigate={onNavigate} />
+            <NavLink item={item} pathname={pathname} onNavigate={onNavigate} prefetch={prefetch} />
           </li>
         ))}
       </ul>
@@ -71,6 +77,7 @@ export function AccountNav({
   onNavigate?: () => void;
 }) {
   const pathname = usePathname();
+  const { isAuthenticated } = useAuth();
   const sections = buildAccountNavSections(isSeller);
 
   return (
@@ -81,6 +88,7 @@ export function AccountNav({
           section={section}
           pathname={pathname}
           onNavigate={onNavigate}
+          prefetch={isAuthenticated}
         />
       ))}
     </nav>

@@ -1,0 +1,22 @@
+-- Dev admin user for OTP login (OTP logged in backend console when dev profile is active).
+-- Copy to V34__admin_user_seed.sql and customize phone/email for your environment.
+--
+--   cp V34__admin_user_seed.sql.example V34__admin_user_seed.sql
+--
+--   Dev Admin  +919876543215  CUSTOMER + ADMIN
+--   Email:      dev-admin@closiq.com
+
+INSERT INTO "user" (id, user_code, phone, phone_verified, email, email_verified, status) VALUES
+    ('a1000001-0001-4001-8001-000000000010', 'VST-USR-100100', '+919876543215', TRUE, 'dev-admin@closiq.com', TRUE, 'ACTIVE');
+
+INSERT INTO user_profile (user_id, first_name, last_name, display_name, preferences) VALUES
+    ('a1000001-0001-4001-8001-000000000010', 'Dev', 'Admin', 'Dev Admin', '{}'::jsonb);
+
+INSERT INTO user_role (user_id, role_id) VALUES
+    ('a1000001-0001-4001-8001-000000000010', 1),
+    ('a1000001-0001-4001-8001-000000000010', 3);
+
+SELECT setval('user_code_seq', GREATEST(
+    (SELECT last_value FROM user_code_seq),
+    100100
+));
