@@ -44,12 +44,13 @@ export function proxy(request: NextRequest) {
     return NextResponse.redirect(new URL(returnUrl, request.url));
   }
 
-  if (
-    (pathname.startsWith("/signup")
-      || pathname === "/forgot-password"
-      || pathname === "/reset-password")
-    && hasSession
-  ) {
+  const isAuthEntryRoute =
+    pathname.startsWith("/signup")
+    || pathname === "/forgot-password"
+    || pathname === "/reset-password";
+  const isPostSignupWelcome = pathname === "/signup/welcome";
+
+  if (isAuthEntryRoute && !isPostSignupWelcome && hasSession) {
     return NextResponse.redirect(new URL("/", request.url));
   }
 

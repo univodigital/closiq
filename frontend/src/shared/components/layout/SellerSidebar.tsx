@@ -9,7 +9,7 @@ export function SellerSidebar() {
       className="hidden w-60 shrink-0 border-r border-border bg-background lg:block"
       aria-label="Seller sidebar"
     >
-      <div className="sticky top-0 flex h-screen flex-col p-6">
+      <div className="sticky top-14 flex h-[calc(100vh-3.5rem)] flex-col p-6">
         <SellerBrand className="mb-6 block" />
         <SellerNav className="flex-1" />
       </div>

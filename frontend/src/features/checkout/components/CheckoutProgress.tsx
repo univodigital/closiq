@@ -22,7 +22,10 @@ export function CheckoutProgress({
   const currentIndex = STEPS.findIndex((s) => s.id === current);
 
   return (
-    <nav aria-label="Checkout progress" className="flex items-center gap-2 md:gap-4">
+    <nav
+      aria-label="Checkout progress"
+      className="flex min-w-0 shrink items-center justify-end gap-1.5 sm:gap-2 md:gap-4"
+    >
       {STEPS.map((step, index) => {
         const done = index < currentIndex;
         const active = index === currentIndex;

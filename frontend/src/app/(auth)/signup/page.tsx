@@ -52,14 +52,14 @@ export default function SignupPage() {
   const router = useRouter();
   const [loading, setLoading] = useState(false);
 
-  const { register, handleSubmit, formState: { errors } } = useForm<FormData>({
+  const { register, handleSubmit, setError, formState: { errors } } = useForm<FormData>({
     resolver: zodResolver(schema),
   });
 
   const onSubmit = async (data: FormData) => {
     setLoading(true);
+    const phone = data.phone.startsWith("+91") ? data.phone : `+91${data.phone}`;
     try {
-      const phone = data.phone.startsWith("+91") ? data.phone : `+91${data.phone}`;
       const email = data.email.trim().toLowerCase();
       const result = await authService.register(phone, true, email);
 
@@ -82,7 +82,13 @@ export default function SignupPage() {
       router.push("/signup/verify?mode=register");
     } catch (error) {
       if (error instanceof ApiError && error.status === 409) {
-        toast.error(error.message || "An account with this phone number already exists. Please log in instead.");
+        const message = error.message.toLowerCase();
+        if (message.includes("email")) {
+          setError("email", { message: error.message || "Email is already registered" });
+        } else {
+          router.push(`${ROUTES.signupExisting}?phone=${encodeURIComponent(phone)}`);
+          return;
+        }
       } else if (error instanceof ApiError) {
         toast.error(error.message);
       } else {

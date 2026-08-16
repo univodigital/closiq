@@ -33,15 +33,25 @@ export const SELLER_SETTINGS_ITEM: SellerNavItem = {
   icon: Settings,
 };
 
+function normalizePathname(pathname: string): string {
+  if (pathname.length > 1 && pathname.endsWith("/")) {
+    return pathname.slice(0, -1);
+  }
+  return pathname;
+}
+
 export function isSellerNavActive(
   pathname: string,
   href: string,
   exact?: boolean,
 ): boolean {
+  const path = normalizePathname(pathname);
+  const target = normalizePathname(href);
+
   if (exact) {
-    return pathname === href;
+    return path === target;
   }
-  return pathname === href || pathname.startsWith(`${href}/`);
+  return path === target || (target !== "/" && path.startsWith(`${target}/`));
 }
 
 export function isSellerNavItemActive(pathname: string, item: SellerNavItem): boolean {
