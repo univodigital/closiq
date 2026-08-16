@@ -4,6 +4,7 @@ import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import { LogOut, Trash2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
+import { useLogoutAction } from "@/features/auth/hooks/useLogoutAction";
 import { useAuth } from "@/providers/AuthProvider";
 import { deleteAccount } from "@/features/user/services";
 import { fetchDeleteAccountPreview } from "@/features/user/services/account-security.service";
@@ -12,6 +13,7 @@ import { ROUTES } from "@/shared/constants/routes";
 export function AccountActions({ className }: { className?: string }) {
   const router = useRouter();
   const { logout } = useAuth();
+  const signOut = useLogoutAction();
   const [deleting, setDeleting] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [previewLoading, setPreviewLoading] = useState(true);
@@ -43,9 +45,8 @@ export function AccountActions({ className }: { className?: string }) {
     };
   }, []);
 
-  async function handleLogout() {
-    await logout();
-    router.push(ROUTES.home);
+  function handleLogout() {
+    void signOut();
   }
 
   async function handleDeleteAccount() {

@@ -14,13 +14,15 @@ export function CheckoutLayoutShell({
 }) {
   return (
     <div className="min-h-screen bg-background">
-      <header className="border-b border-border px-5 py-5 md:px-12">
-        <div className="mx-auto flex max-w-6xl flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
-          <Logo href={ROUTES.home} size="sm" />
-          <CheckoutProgress current={step} queryString={queryString} />
+      <header className="sticky top-0 z-50 border-b border-border bg-card/95 backdrop-blur-sm">
+        <div className="mx-auto max-w-6xl px-4 md:px-8">
+          <div className="flex min-h-[4.75rem] flex-col justify-center gap-4 py-2 sm:flex-row sm:items-center sm:justify-between">
+            <Logo href={ROUTES.home} size="nav" priority />
+            <CheckoutProgress current={step} queryString={queryString} />
+          </div>
         </div>
       </header>
-      <main className="mx-auto max-w-6xl px-5 py-8 md:px-12">{children}</main>
+      <main className="mx-auto max-w-6xl px-4 py-8 md:px-8">{children}</main>
     </div>
   );
 }

@@ -7,6 +7,7 @@ export class ApiError extends Error {
   constructor(
     message: string,
     readonly status: number,
+    readonly code?: string,
   ) {
     super(message);
     this.name = "ApiError";
@@ -22,6 +23,27 @@ interface ProblemBody {
   detail?: string;
   title?: string;
   code?: string;
+}
+
+const SESSION_EXPIRED_CODES = new Set(["UNAUTHORIZED", "TOKEN_EXPIRED"]);
+
+function isProviderAuthFailure(detail?: string): boolean {
+  if (!detail) return false;
+  const normalized = detail.toLowerCase();
+  return normalized.includes("razorpay") || normalized.includes("payment provider");
+}
+
+function mightBeExpiredSession(status: number, code?: string, detail?: string): boolean {
+  if (status !== 401 || !getAccessToken()) {
+    return false;
+  }
+  if (isProviderAuthFailure(detail)) {
+    return false;
+  }
+  if (code && !SESSION_EXPIRED_CODES.has(code)) {
+    return false;
+  }
+  return true;
 }
 
 async function refreshAccessToken(): Promise<boolean> {
@@ -40,12 +62,11 @@ async function refreshAccessToken(): Promise<boolean> {
   }
 }
 
-async function parseError(response: Response): Promise<string> {
+async function parseProblemBody(response: Response): Promise<ProblemBody> {
   try {
-    const body = (await response.json()) as ProblemBody;
-    return body.detail ?? body.title ?? response.statusText;
+    return (await response.json()) as ProblemBody;
   } catch {
-    return response.statusText || "Request failed";
+    return {};
   }
 }
 
@@ -98,22 +119,29 @@ async function apiFetchRaw<T>(
   });
 
   if (!response.ok) {
+    const problem = await parseProblemBody(response);
+
     if (
       auth &&
       !retried &&
-      response.status === 401 &&
+      mightBeExpiredSession(response.status, problem.code, problem.detail) &&
       (await refreshAccessToken())
     ) {
       return apiFetchRaw<T>(path, init, true);
     }
 
-    if (auth && (response.status === 401 || response.status === 403) && getAccessToken()) {
+    if (auth && mightBeExpiredSession(response.status, problem.code, problem.detail)) {
       setAccessToken(null);
       if (typeof window !== "undefined") {
         window.dispatchEvent(new Event("closiq:session-expired"));
       }
     }
-    throw new ApiError(await parseError(response), response.status);
+
+    throw new ApiError(
+      problem.detail ?? problem.title ?? response.statusText,
+      response.status,
+      problem.code,
+    );
   }
 
   if (response.status === 204) {

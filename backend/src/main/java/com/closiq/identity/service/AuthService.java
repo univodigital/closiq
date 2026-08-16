@@ -311,6 +311,13 @@ public class AuthService {
                 profile.getLastName().trim(),
                 profile.getGender());
 
+        if (session.getDeliveryEmail() != null
+                && !session.getDeliveryEmail().isBlank()
+                && profileEmail.equals(session.getDeliveryEmail())) {
+            user.setEmailVerified(true);
+            user = userRepository.save(user);
+        }
+
         if (user.getEmail() != null && !user.getEmail().isBlank()) {
             try {
                 emailService.sendWelcome(user.getEmail(), profile.getUsername());

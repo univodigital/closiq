@@ -19,4 +19,5 @@ public class CreateRazorpayOrderResponse {
     String checkoutBatchId;
     int itemCount;
     Instant expiresAt;
+    boolean stubEnabled;
 }

@@ -2,7 +2,7 @@
   <configuration default="false" name="Closiq Backend (test - Supabase)" type="SpringBootApplicationConfigurationType" factoryName="Spring Boot">
     <option name="ACTIVE_PROFILES" value="test" />
     <option name="envFilePaths">
-      <option value="$USER_HOME$/Downloads/closiq-backend (1).env" />
+      <option value="$PROJECT_DIR$/.env.test" />
     </option>
     <module name="closiq-backend" />
     <selectedOptions>

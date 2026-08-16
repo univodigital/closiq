@@ -12,6 +12,7 @@ import com.closiq.payment.web.dto.CreateRazorpayOrderRequest;
 import com.closiq.payment.web.dto.CreateRazorpayOrderResponse;
 import com.closiq.payment.web.dto.PaymentSummaryResponse;
 import com.closiq.payment.web.dto.RefundStatusResponse;
+import com.closiq.payment.web.dto.StubCompletePaymentRequest;
 import com.closiq.payment.web.dto.VerifyPaymentRequest;
 import com.closiq.payment.web.dto.VerifyPaymentResponse;
 import io.swagger.v3.oas.annotations.Operation;
@@ -83,6 +84,19 @@ public class PaymentController {
 
         return ResponseEntity.ok(ApiResponse.ok(
                 paymentService.verifyPayment(principal.userId(), body),
+                ClosiqRequestIdFilter.getRequestId(request)));
+    }
+
+    @PostMapping("/razorpay/stub/complete")
+    @Operation(summary = "Complete a mock payment (dev only, stub gateway enabled)")
+    public ResponseEntity<ApiResponse<VerifyPaymentResponse>> completeStubPayment(
+            @AuthenticationPrincipal UserPrincipal principal,
+            @RequestHeader("Idempotency-Key") String idempotencyKey,
+            @Valid @RequestBody StubCompletePaymentRequest body,
+            HttpServletRequest request) {
+
+        return ResponseEntity.ok(ApiResponse.ok(
+                paymentService.completeStubPayment(principal.userId(), body.getPaymentId()),
                 ClosiqRequestIdFilter.getRequestId(request)));
     }
 

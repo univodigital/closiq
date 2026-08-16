@@ -21,8 +21,8 @@ const HOVER_CLOSE_DELAY_MS = 120;
 
 function NavColumn({ title, children }: { title: string; children: React.ReactNode }) {
   return (
-    <div className="min-w-[5.25rem]">
-      <p className="label-caps mb-1.5 text-[11px] text-muted-foreground">{title}</p>
+    <div className="shrink-0">
+      <p className="label-caps mb-1.5 whitespace-nowrap text-[11px] text-muted-foreground">{title}</p>
       <ul className="space-y-0.5">{children}</ul>
     </div>
   );
@@ -69,8 +69,8 @@ function ShopMegaPanel({
   const categories = shopGarmentCategories(audience);
 
   return (
-    <div className="px-3 py-3">
-      <div className="flex gap-4">
+    <div className="px-4 py-3">
+      <div className="flex gap-8">
         <NavColumn title="Shop by occasion">
           {SHOP_OCCASIONS.map((item) => (
             <MegaMenuLink
@@ -188,10 +188,13 @@ export function TopNav() {
       onMouseLeave={scheduleClose}
     >
       <div className="relative mx-auto max-w-6xl px-4 md:px-8">
-        <div className="flex items-center justify-between gap-3 py-2">
+        <div className="relative flex min-h-14 items-center justify-between gap-3 py-1.5">
           <Logo href={ROUTES.home} size="sm" priority />
 
-          <nav className="hidden items-center gap-5 lg:flex" aria-label="Shop">
+          <nav
+            className="absolute left-1/2 hidden -translate-x-1/2 items-center gap-5 lg:flex"
+            aria-label="Shop"
+          >
             {AUDIENCES.map((audience) => {
               const slug = audience.slug as ShopAudienceSlug;
               const isOpen = openAudience === slug;
@@ -217,7 +220,7 @@ export function TopNav() {
             </Link>
           </nav>
 
-          <div className="flex items-center gap-2 md:gap-4">
+          <div className="ml-auto flex items-center gap-2 md:gap-4">
             <Link
               href={ROUTES.search}
               className="flex h-9 w-9 items-center justify-center text-muted-foreground transition-colors hover:bg-muted hover:text-foreground"
@@ -243,7 +246,7 @@ export function TopNav() {
             onMouseEnter={cancelClose}
             onMouseLeave={scheduleClose}
           >
-            <div className="w-[22rem] max-w-[calc(100vw-2rem)] rounded-sm border border-border bg-card shadow-md">
+            <div className="w-[32rem] max-w-[calc(100vw-2rem)] rounded-sm border border-border bg-card shadow-md">
               <div key={openAudience} className="mega-menu-blink">
                 <ShopMegaPanel audience={openAudience} pathname={pathname} />
               </div>

@@ -5,6 +5,7 @@ import { QueryProvider } from "@/providers/QueryProvider";
 import { AuthProvider } from "@/providers/AuthProvider";
 import { BagProvider } from "@/providers/BagProvider";
 import { AppModeProvider } from "@/providers/AppModeProvider";
+import { LoggedOutToastListener } from "@/features/auth/components/LoggedOutToastListener";
 import "./globals.css";
 
 const dmSans = DM_Sans({
@@ -27,8 +28,8 @@ export const metadata: Metadata = {
   title: { default: "Closiq — Buy · Rent · Redefine", template: "%s — Closiq" },
   description: "Premium clothing rental marketplace with 15-minute home trial.",
   icons: {
-    icon: "/logo-icon.png",
-    apple: "/logo-icon.png",
+    icon: [{ url: "/favicon.png", type: "image/png" }],
+    apple: "/favicon.png",
   },
 };
 
@@ -43,6 +44,7 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
           <AuthProvider>
             <BagProvider>
               <AppModeProvider>
+                <LoggedOutToastListener />
                 {children}
                 <Toaster position="top-center" richColors />
               </AppModeProvider>

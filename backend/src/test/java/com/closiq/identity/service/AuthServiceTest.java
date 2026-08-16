@@ -177,6 +177,82 @@ class AuthServiceTest {
     }
 
     @Test
+    void completeRegistration_marksEmailVerifiedWhenOtpWasDeliveredThere() {
+        session.setStatus(OtpSessionStatus.VERIFIED);
+        session.setVerifiedAt(Instant.now());
+        session.setDeliveryEmail("new@example.com");
+        var profile = new VerifyOtpRequest.RegistrationProfileRequest(
+                "new_user", "Password1", "new@example.com", "Ana", "Sharma", Gender.FEMALE);
+        User created = existingUser();
+        created.setEmail("new@example.com");
+        created.setEmailVerified(false);
+
+        when(otpSessionRepository.findById(sessionId)).thenReturn(Optional.of(session));
+        when(userRepository.findByPhoneAndDeletedAtIsNull("+919876543210")).thenReturn(Optional.empty());
+        when(userService.usernameExists("new_user")).thenReturn(false);
+        when(userRepository.findByEmailIgnoreCaseAndDeletedAtIsNull("new@example.com")).thenReturn(Optional.empty());
+        when(hashUtils.hashPassword("Password1")).thenReturn("hash");
+        when(userService.createUserWithUsername(
+                eq("+919876543210"), eq("new_user"), eq("hash"), eq("new@example.com"),
+                eq("Ana"), eq("Sharma"), eq(Gender.FEMALE))).thenReturn(created);
+        when(userRepository.save(created)).thenAnswer(inv -> inv.getArgument(0));
+        when(userService.buildPrincipal(created)).thenReturn(new UserPrincipal(created.getId(), java.util.List.of(RoleType.CUSTOMER), true, null));
+        when(jwtService.generateAccessToken(any())).thenReturn("access-token");
+        when(jwtService.getAccessTokenExpirationSeconds()).thenReturn(900L);
+        when(refreshTokenService.issue(eq(created), any(), any()))
+                .thenReturn(new RefreshTokenService.IssuedRefreshToken("refresh", null));
+        when(userService.requireProfile(created.getId())).thenReturn(null);
+        when(userService.getUserRoles(created.getId())).thenReturn(java.util.List.of(RoleType.CUSTOMER));
+        when(userMapper.toSummaryWithRoleTypes(any(), any(), any())).thenReturn(null);
+        when(sellerProfileRepository.findByUserId(created.getId())).thenReturn(Optional.empty());
+
+        authService.completeRegistration(
+                new CompleteRegistrationRequest(sessionId.toString(), profile),
+                "127.0.0.1",
+                "test");
+
+        assertThat(created.isEmailVerified()).isTrue();
+        verify(userRepository, org.mockito.Mockito.atLeastOnce()).save(created);
+    }
+
+    @Test
+    void completeRegistration_leavesEmailUnverifiedWhenNoDeliveryEmail() {
+        session.setStatus(OtpSessionStatus.VERIFIED);
+        session.setVerifiedAt(Instant.now());
+        var profile = new VerifyOtpRequest.RegistrationProfileRequest(
+                "new_user", "Password1", "new@example.com", "Ana", "Sharma", Gender.FEMALE);
+        User created = existingUser();
+        created.setEmail("new@example.com");
+        created.setEmailVerified(false);
+
+        when(otpSessionRepository.findById(sessionId)).thenReturn(Optional.of(session));
+        when(userRepository.findByPhoneAndDeletedAtIsNull("+919876543210")).thenReturn(Optional.empty());
+        when(userService.usernameExists("new_user")).thenReturn(false);
+        when(userRepository.findByEmailIgnoreCaseAndDeletedAtIsNull("new@example.com")).thenReturn(Optional.empty());
+        when(hashUtils.hashPassword("Password1")).thenReturn("hash");
+        when(userService.createUserWithUsername(
+                eq("+919876543210"), eq("new_user"), eq("hash"), eq("new@example.com"),
+                eq("Ana"), eq("Sharma"), eq(Gender.FEMALE))).thenReturn(created);
+        when(userRepository.save(created)).thenReturn(created);
+        when(userService.buildPrincipal(created)).thenReturn(new UserPrincipal(created.getId(), java.util.List.of(RoleType.CUSTOMER), true, null));
+        when(jwtService.generateAccessToken(any())).thenReturn("access-token");
+        when(jwtService.getAccessTokenExpirationSeconds()).thenReturn(900L);
+        when(refreshTokenService.issue(eq(created), any(), any()))
+                .thenReturn(new RefreshTokenService.IssuedRefreshToken("refresh", null));
+        when(userService.requireProfile(created.getId())).thenReturn(null);
+        when(userService.getUserRoles(created.getId())).thenReturn(java.util.List.of(RoleType.CUSTOMER));
+        when(userMapper.toSummaryWithRoleTypes(any(), any(), any())).thenReturn(null);
+        when(sellerProfileRepository.findByUserId(created.getId())).thenReturn(Optional.empty());
+
+        authService.completeRegistration(
+                new CompleteRegistrationRequest(sessionId.toString(), profile),
+                "127.0.0.1",
+                "test");
+
+        assertThat(created.isEmailVerified()).isFalse();
+    }
+
+    @Test
     void completeRegistration_createsUserAfterVerifiedSession() {
         session.setStatus(OtpSessionStatus.VERIFIED);
         session.setVerifiedAt(Instant.now());

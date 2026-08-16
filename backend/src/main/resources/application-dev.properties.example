@@ -75,8 +75,8 @@ closiq.s3.stub-enabled=true
 # ---------------------------------------------------------------------------
 # Payments & logistics (Razorpay sandbox; Shadowfax stub unless configured)
 # ---------------------------------------------------------------------------
-closiq.razorpay.key-id=${RAZORPAY_KEY_ID:}
-closiq.razorpay.key-secret=${RAZORPAY_KEY_SECRET:}
+closiq.razorpay.key-id=${RAZORPAY_KEY_ID:rzp_test_stub}
+closiq.razorpay.key-secret=${RAZORPAY_KEY_SECRET:razorpay_stub_secret}
 closiq.razorpay.stub-enabled=${RAZORPAY_STUB_ENABLED:true}
 closiq.shadowfax.webhook-secret=${SHADOWFAX_WEBHOOK_SECRET:shadowfax_stub_webhook_secret}
 closiq.shadowfax.stub-enabled=${SHADOWFAX_STUB_ENABLED:true}

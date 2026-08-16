@@ -1,9 +1,11 @@
 package com.closiq.booking.service;
 
 import com.closiq.booking.domain.Booking;
+import com.closiq.booking.domain.BookingItem;
 import com.closiq.booking.domain.BookingStatus;
 import com.closiq.booking.domain.CheckoutBatch;
 import com.closiq.booking.domain.CheckoutSession;
+import com.closiq.booking.repository.BookingItemRepository;
 import com.closiq.booking.repository.BookingRepository;
 import com.closiq.booking.repository.CheckoutBatchRepository;
 import com.closiq.booking.repository.CheckoutSessionRepository;
@@ -13,6 +15,7 @@ import com.closiq.common.exception.ClosiqException;
 import com.closiq.common.exception.ErrorCode;
 import com.closiq.common.util.IdGenerator;
 import com.closiq.config.ClosiqProperties;
+import com.closiq.inventory.service.InventoryHoldService;
 import com.closiq.payment.service.CouponService;
 import com.closiq.payment.web.dto.PrepareCheckoutBatchRequest;
 import com.closiq.payment.web.dto.PrepareCheckoutBatchResponse;
@@ -37,6 +40,7 @@ public class CheckoutBatchService {
 
     private final CheckoutBatchRepository checkoutBatchRepository;
     private final BookingRepository bookingRepository;
+    private final BookingItemRepository bookingItemRepository;
     private final CheckoutSessionRepository checkoutSessionRepository;
     private final BookingService bookingService;
     private final BookingHoldExpiryService holdExpiryService;
@@ -44,6 +48,8 @@ public class CheckoutBatchService {
     private final ServiceablePincodeRepository serviceablePincodeRepository;
     private final CouponService couponService;
     private final ClosiqProperties properties;
+    private final InventoryHoldService inventoryHoldService;
+    private final BookingTimelineService timelineService;
 
     @Transactional
     public PrepareCheckoutBatchResponse prepare(
@@ -54,9 +60,15 @@ public class CheckoutBatchService {
         if (idempotencyKey != null && !idempotencyKey.isBlank()) {
             var existing = checkoutBatchRepository.findByIdempotencyKey(idempotencyKey);
             if (existing.isPresent()) {
-                return rebuildResponse(existing.get(), customerId);
+                CheckoutBatch batch = existing.get();
+                if (canReuseBatch(batch, customerId, request)) {
+                    return rebuildResponse(batch, customerId);
+                }
+                abandonBatch(batch);
             }
         }
+
+        releaseOtherOpenCheckouts(customerId);
 
         Address address = addressRepository.findByIdAndUserIdAndDeletedAtIsNull(
                         request.getDeliveryAddressId(), customerId)
@@ -174,15 +186,109 @@ public class CheckoutBatchService {
         }
     }
 
+    private boolean canReuseBatch(
+            CheckoutBatch batch, UUID customerId, PrepareCheckoutBatchRequest request) {
+        if (!batch.getCustomerId().equals(customerId)) {
+            return false;
+        }
+        if (!CheckoutBatch.OPEN.equals(batch.getStatus())) {
+            return false;
+        }
+        if (Instant.now().isAfter(batch.getExpiresAt())) {
+            return false;
+        }
+        if (!request.getDeliveryAddressId().equals(batch.getDeliveryAddressId())) {
+            return false;
+        }
+        List<Booking> bookings = bookingRepository.findByCheckoutBatchIdAndCustomerId(batch.getId(), customerId);
+        if (bookings.stream().noneMatch(b -> BookingStatus.PENDING_PAYMENT.equals(b.getStatus()))) {
+            return false;
+        }
+        return matchesBatchItems(bookings, request);
+    }
+
+    private boolean matchesBatchItems(List<Booking> bookings, PrepareCheckoutBatchRequest request) {
+        List<Booking> pending = bookings.stream()
+                .filter(b -> BookingStatus.PENDING_PAYMENT.equals(b.getStatus()))
+                .toList();
+        if (pending.size() != request.getItems().size()) {
+            return false;
+        }
+
+        List<String> existingSignatures = new ArrayList<>();
+        for (Booking booking : pending) {
+            BookingItem item = bookingItemRepository.findByBookingId(booking.getId()).orElse(null);
+            if (item == null) {
+                return false;
+            }
+            existingSignatures.add(lineSignature(
+                    item.getProductId(),
+                    item.getProductVariantId(),
+                    booking.getRentalStartDate(),
+                    booking.getRentalEndDate()));
+        }
+
+        List<String> requestedSignatures = request.getItems().stream()
+                .map(line -> lineSignature(
+                        line.getProductId(),
+                        line.getVariantId(),
+                        line.getRentalStartDate(),
+                        line.getRentalEndDate()))
+                .toList();
+
+        existingSignatures.sort(String::compareTo);
+        ArrayList<String> sortedRequested = new ArrayList<>(requestedSignatures);
+        sortedRequested.sort(String::compareTo);
+        return existingSignatures.equals(sortedRequested);
+    }
+
+    private static String lineSignature(
+            UUID productId, UUID variantId, java.time.LocalDate start, java.time.LocalDate end) {
+        return productId + "|" + variantId + "|" + start + "|" + end;
+    }
+
+    private void releaseOtherOpenCheckouts(UUID customerId) {
+        checkoutBatchRepository.findByCustomerIdAndStatusOrderByCreatedAtDesc(customerId, CheckoutBatch.OPEN)
+                .forEach(this::abandonBatch);
+    }
+
+    private void abandonBatch(CheckoutBatch batch) {
+        if (CheckoutBatch.COMPLETED.equals(batch.getStatus())) {
+            return;
+        }
+
+        Instant now = Instant.now();
+        List<Booking> bookings = bookingRepository.findByCheckoutBatchIdAndCustomerId(
+                batch.getId(), batch.getCustomerId());
+        for (Booking booking : bookings) {
+            if (BookingStatus.PENDING_PAYMENT.equals(booking.getStatus())) {
+                booking.setStatus(BookingStatus.CANCELLED);
+                booking.setCancelledAt(now);
+                booking.setCancelReason("CHECKOUT_ABANDONED");
+                booking.setIdempotencyKey(null);
+                bookingRepository.save(booking);
+                inventoryHoldService.releaseByBookingId(booking.getId(), InventoryHoldService.EXPIRED);
+                timelineService.append(
+                        booking.getId(),
+                        null,
+                        BookingStatus.CANCELLED,
+                        "Checkout abandoned — hold released");
+            }
+        }
+
+        if (CheckoutBatch.OPEN.equals(batch.getStatus())) {
+            batch.setStatus(CheckoutBatch.EXPIRED);
+        }
+        batch.setIdempotencyKey(null);
+        checkoutBatchRepository.save(batch);
+    }
+
     private PrepareCheckoutBatchResponse rebuildResponse(CheckoutBatch batch, UUID customerId) {
         if (!batch.getCustomerId().equals(customerId)) {
             throw new ClosiqException(ErrorCode.NOT_FOUND, "Checkout batch not found");
         }
         if (CheckoutBatch.COMPLETED.equals(batch.getStatus())) {
             throw new ClosiqException(ErrorCode.INVALID_STATE_TRANSITION, "Checkout already completed");
-        }
-        if (Instant.now().isAfter(batch.getExpiresAt())) {
-            throw new ClosiqException(ErrorCode.BOOKING_CONFLICT, "Checkout hold has expired");
         }
 
         List<Booking> bookings = bookingRepository.findByCheckoutBatchIdAndCustomerId(batch.getId(), customerId);

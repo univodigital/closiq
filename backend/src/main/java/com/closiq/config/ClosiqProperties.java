@@ -34,6 +34,17 @@ public class ClosiqProperties {
         private String keyId = "rzp_test_stub";
         private String keySecret = "razorpay_stub_secret";
         private boolean stubEnabled = true;
+
+        /** True when the stub gateway should handle orders/refunds (explicit flag or placeholder credentials). */
+        public boolean shouldUseStubGateway() {
+            if (stubEnabled) {
+                return true;
+            }
+            if (keyId == null || keyId.isBlank() || keySecret == null || keySecret.isBlank()) {
+                return true;
+            }
+            return keyId.contains("stub") || keySecret.contains("stub");
+        }
     }
 
     @Getter
