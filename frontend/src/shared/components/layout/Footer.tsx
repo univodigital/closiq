@@ -1,6 +1,7 @@
 import Link from "next/link";
 import { Container } from "./Container";
 import { Logo } from "./Logo";
+import { ROUTES } from "@/shared/constants/routes";
 
 export function Footer() {
   return (
@@ -8,7 +9,7 @@ export function Footer() {
       <Container>
         <div className="flex flex-col gap-8 md:flex-row md:justify-between">
           <div>
-            <Logo size="sm" />
+            <Logo href={ROUTES.home} size="nav" />
             <p className="mt-2 max-w-xs text-sm text-muted-foreground">
               Premium clothing rental with a 15-minute home trial. Mumbai.
             </p>

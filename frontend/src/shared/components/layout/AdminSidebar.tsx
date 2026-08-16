@@ -11,6 +11,7 @@ import {
   Store,
   Users,
 } from "lucide-react";
+import { Logo } from "@/shared/components/layout/Logo";
 import { ROUTES } from "@/shared/constants/routes";
 import { cn } from "@/lib/utils";
 
@@ -29,7 +30,7 @@ export function AdminSidebar() {
   return (
     <aside className="hidden w-60 shrink-0 border-r border-border bg-background lg:block">
       <div className="sticky top-0 flex h-screen flex-col p-6">
-        <p className="label-caps mb-6 text-muted-foreground">Admin console</p>
+        <Logo href={ROUTES.admin.dashboard} size="nav" className="mb-6" />
         <nav className="flex flex-1 flex-col gap-1">
           {items.map(({ href, label, icon: Icon }) => (
             <Link

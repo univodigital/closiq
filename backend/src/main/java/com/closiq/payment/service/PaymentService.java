@@ -16,6 +16,7 @@ import com.closiq.payment.domain.PaymentStatus;
 import com.closiq.payment.gateway.PaymentGateway;
 import com.closiq.payment.gateway.RazorpayApiException;
 import com.closiq.payment.gateway.RazorpayOrderResult;
+import com.closiq.payment.gateway.StubRazorpayPaymentGateway;
 import com.closiq.payment.repository.PaymentAttemptRepository;
 import com.closiq.payment.repository.PaymentRepository;
 import com.closiq.payment.web.dto.CreateRazorpayOrderResponse;
@@ -40,6 +41,7 @@ public class PaymentService {
     private final BookingRepository bookingRepository;
     private final CheckoutBatchRepository checkoutBatchRepository;
     private final PaymentGateway paymentGateway;
+    private final StubRazorpayPaymentGateway stubPaymentGateway;
     private final PaymentConfirmationService confirmationService;
     private final BookingHoldExpiryService holdExpiryService;
     private final ClosiqProperties properties;
@@ -88,7 +90,7 @@ public class PaymentService {
             throw new ClosiqException(ErrorCode.VALIDATION_ERROR, ex.getMessage());
         } catch (RazorpayApiException ex) {
             if (ex.getStatusCode() == 401) {
-                throw new ClosiqException(ErrorCode.UNAUTHORIZED, "Razorpay authentication failed");
+                throw new ClosiqException(ErrorCode.PAYMENT_PROVIDER_UNAVAILABLE, "Razorpay authentication failed");
             }
             throw new ClosiqException(ErrorCode.INTERNAL_ERROR, "Razorpay order creation failed");
         } catch (Exception ex) {
@@ -122,7 +124,32 @@ public class PaymentService {
                 .keyId(properties.getRazorpay().getKeyId())
                 .bookingId(booking.getId().toString())
                 .expiresAt(booking.getHoldExpiresAt())
+                .stubEnabled(properties.getRazorpay().shouldUseStubGateway())
                 .build();
+    }
+
+    @Transactional
+    public VerifyPaymentResponse completeStubPayment(UUID customerId, String paymentId) {
+        if (!properties.getRazorpay().shouldUseStubGateway()) {
+            throw new ClosiqException(ErrorCode.FORBIDDEN, "Stub payments are disabled");
+        }
+
+        Payment payment = paymentRepository.findByIdAndCustomerId(UUID.fromString(paymentId), customerId)
+                .orElseThrow(() -> new ClosiqException(ErrorCode.NOT_FOUND, "Payment not found"));
+
+        if (!payment.getProviderOrderId().startsWith("order_STUB_")) {
+            throw new ClosiqException(ErrorCode.VALIDATION_ERROR, "Payment is not a stub order");
+        }
+
+        String razorpayPaymentId = "pay_STUB_" + IdGenerator.uuidV7().toString().replace("-", "").substring(0, 14);
+        String signature = stubPaymentGateway.generateStubSignature(
+                payment.getProviderOrderId(), razorpayPaymentId);
+
+        return verifyPayment(customerId, new VerifyPaymentRequest(
+                paymentId,
+                payment.getProviderOrderId(),
+                razorpayPaymentId,
+                signature));
     }
 
     @Transactional
@@ -178,7 +205,7 @@ public class PaymentService {
             throw new ClosiqException(ErrorCode.VALIDATION_ERROR, ex.getMessage());
         } catch (RazorpayApiException ex) {
             if (ex.getStatusCode() == 401) {
-                throw new ClosiqException(ErrorCode.UNAUTHORIZED, "Razorpay authentication failed");
+                throw new ClosiqException(ErrorCode.PAYMENT_PROVIDER_UNAVAILABLE, "Razorpay authentication failed");
             }
             throw new ClosiqException(ErrorCode.INTERNAL_ERROR, "Razorpay order creation failed");
         } catch (Exception ex) {
@@ -219,6 +246,7 @@ public class PaymentService {
                 .checkoutBatchId(checkoutBatchId.toString())
                 .itemCount(bookings.size())
                 .expiresAt(batch.getExpiresAt())
+                .stubEnabled(properties.getRazorpay().shouldUseStubGateway())
                 .build();
     }
 
@@ -292,6 +320,7 @@ public class PaymentService {
                 .checkoutBatchId(payment.getCheckoutBatchId().toString())
                 .itemCount(bookings.size())
                 .expiresAt(batch.getExpiresAt())
+                .stubEnabled(properties.getRazorpay().shouldUseStubGateway())
                 .build();
     }
 
@@ -306,6 +335,7 @@ public class PaymentService {
                 .keyId(properties.getRazorpay().getKeyId())
                 .bookingId(payment.getBookingId().toString())
                 .expiresAt(booking.getHoldExpiresAt())
+                .stubEnabled(properties.getRazorpay().shouldUseStubGateway())
                 .build();
     }
 

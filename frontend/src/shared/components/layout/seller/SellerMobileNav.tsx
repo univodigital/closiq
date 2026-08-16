@@ -1,15 +1,12 @@
 "use client";
 
 import { useState } from "react";
-import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { Drawer } from "vaul";
 import { sellerPageTitle } from "@/shared/constants/seller-nav";
-import { ROUTES } from "@/shared/constants/routes";
 import { AnimatedMenuButton } from "./AnimatedMenuButton";
 import { SellerBrand } from "./SellerBrand";
 import { SellerNav } from "./SellerNav";
-import { ProfileMenu } from "@/shared/components/layout/ProfileMenu";
 
 export function SellerMobileNav() {
   const [open, setOpen] = useState(false);
@@ -19,25 +16,13 @@ export function SellerMobileNav() {
   return (
     <Drawer.Root open={open} onOpenChange={setOpen}>
       <div className="border-b border-border px-5 py-4 lg:hidden">
-        <div className="flex items-start justify-between gap-4">
-          <div className="flex min-w-0 items-start gap-3">
-            <AnimatedMenuButton open={open} onClick={() => setOpen((value) => !value)} />
-            <div className="min-w-0">
-              <SellerBrand className="block" />
-              <div className="mt-4">
-                <p className="font-heading text-lg leading-tight">{title}</p>
-              </div>
+        <div className="flex items-start gap-3">
+          <AnimatedMenuButton open={open} onClick={() => setOpen((value) => !value)} />
+          <div className="min-w-0">
+            <SellerBrand className="block" />
+            <div className="mt-4">
+              <p className="font-heading text-lg leading-tight">{title}</p>
             </div>
-          </div>
-
-          <div className="flex shrink-0 items-center gap-2 pt-0.5">
-            <ProfileMenu />
-            <Link
-              href={ROUTES.home}
-              className="text-sm text-muted-foreground transition-colors hover:text-foreground"
-            >
-              Shop
-            </Link>
           </div>
         </div>
       </div>

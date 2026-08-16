@@ -105,9 +105,14 @@ public class BookingService {
             if (existing.isPresent()) {
                 Booking booking = existing.get();
                 if (!matchesRequest(booking, request)) {
-                    throw new ClosiqException(ErrorCode.IDEMPOTENCY_CONFLICT);
+                    releaseStaleHold(booking);
+                } else if (BookingStatus.PENDING_PAYMENT.equals(booking.getStatus())
+                        && booking.getHoldExpiresAt() != null
+                        && Instant.now().isBefore(booking.getHoldExpiresAt())) {
+                    return rebuildCreateResponse(booking);
                 }
-                return rebuildCreateResponse(booking);
+                booking.setIdempotencyKey(null);
+                bookingRepository.save(booking);
             }
         }
 
@@ -432,6 +437,23 @@ public class BookingService {
             throw new ClosiqException(ErrorCode.PINCODE_NOT_SERVICEABLE);
         }
         return address;
+    }
+
+    private void releaseStaleHold(Booking booking) {
+        Instant now = Instant.now();
+        if (BookingStatus.PENDING_PAYMENT.equals(booking.getStatus())) {
+            booking.setStatus(BookingStatus.CANCELLED);
+            booking.setCancelledAt(now);
+            booking.setCancelReason("CHECKOUT_PAYLOAD_CHANGED");
+            inventoryHoldService.releaseByBookingId(booking.getId(), InventoryHoldService.EXPIRED);
+            timelineService.append(
+                    booking.getId(),
+                    null,
+                    BookingStatus.CANCELLED,
+                    "Checkout changed — previous hold released");
+        }
+        booking.setIdempotencyKey(null);
+        bookingRepository.save(booking);
     }
 
     private boolean matchesRequest(Booking booking, CreateBookingRequest request) {

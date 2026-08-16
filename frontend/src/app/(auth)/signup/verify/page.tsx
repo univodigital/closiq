@@ -118,7 +118,7 @@ export default function VerifyOtpPage() {
         sessionStorage.removeItem("otpChannel");
         sessionStorage.removeItem("otpResendIn");
         toast.success("Welcome back");
-        router.push(returnUrl);
+        router.replace(returnUrl);
       }
     } catch (e) {
       if (e instanceof ApiError && e.status === 403) {

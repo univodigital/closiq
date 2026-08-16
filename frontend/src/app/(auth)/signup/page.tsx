@@ -10,6 +10,7 @@ import { toast } from "sonner";
 import { authService } from "@/features/auth/services";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import { PasswordInput } from "@/components/ui/password-input";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { ROUTES } from "@/shared/constants/routes";
 import { ApiError } from "@/lib/api-client";
@@ -21,23 +22,29 @@ const passwordSchema = z
   .regex(/[A-Z]/, "Include an uppercase letter")
   .regex(/\d/, "Include a number");
 
-const schema = z.object({
-  phone: z.string().regex(/^(\+91)?[6-9]\d{9}$/, "Enter valid 10-digit mobile"),
-  firstName: z.string().min(1, "First name is required").max(50, "Max 50 characters"),
-  lastName: z.string().min(1, "Last name is required").max(50, "Max 50 characters"),
-  gender: z.enum(["MALE", "FEMALE", "OTHER", "PREFER_NOT_TO_SAY"], {
-    required_error: "Select your gender",
-    invalid_type_error: "Select your gender",
-  }),
-  username: z
-    .string()
-    .min(3, "At least 3 characters")
-    .max(30, "Max 30 characters")
-    .regex(/^[a-zA-Z0-9_]+$/, "Letters, numbers, and underscores only"),
-  email: z.string().email("Enter a valid email address"),
-  password: passwordSchema,
-  acceptTerms: z.literal(true, { errorMap: () => ({ message: "You must accept the terms" }) }),
-});
+const schema = z
+  .object({
+    phone: z.string().regex(/^(\+91)?[6-9]\d{9}$/, "Enter valid 10-digit mobile"),
+    firstName: z.string().min(1, "First name is required").max(50, "Max 50 characters"),
+    lastName: z.string().min(1, "Last name is required").max(50, "Max 50 characters"),
+    gender: z.enum(["MALE", "FEMALE", "OTHER", "PREFER_NOT_TO_SAY"], {
+      required_error: "Select your gender",
+      invalid_type_error: "Select your gender",
+    }),
+    username: z
+      .string()
+      .min(3, "At least 3 characters")
+      .max(30, "Max 30 characters")
+      .regex(/^[a-zA-Z0-9_]+$/, "Letters, numbers, and underscores only"),
+    email: z.string().email("Enter a valid email address"),
+    password: passwordSchema,
+    confirmPassword: z.string().min(1, "Confirm your password"),
+    acceptTerms: z.literal(true, { errorMap: () => ({ message: "You must accept the terms" }) }),
+  })
+  .refine((data) => data.password === data.confirmPassword, {
+    message: "Passwords do not match",
+    path: ["confirmPassword"],
+  });
 
 type FormData = z.infer<typeof schema>;
 
@@ -141,12 +148,20 @@ export default function SignupPage() {
           </div>
           <div>
             <label className="label-caps mb-2 block text-muted-foreground">Password</label>
-            <Input
+            <PasswordInput
               {...register("password")}
-              type="password"
               placeholder="Password"
               autoComplete="new-password"
               error={errors.password?.message}
+            />
+          </div>
+          <div>
+            <label className="label-caps mb-2 block text-muted-foreground">Confirm password</label>
+            <PasswordInput
+              {...register("confirmPassword")}
+              placeholder="Re-type password"
+              autoComplete="new-password"
+              error={errors.confirmPassword?.message}
             />
           </div>
           <label className="flex items-start gap-2 text-sm">

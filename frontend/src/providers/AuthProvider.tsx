@@ -68,6 +68,27 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     refreshUser().finally(() => setIsLoading(false));
   }, [refreshUser]);
 
+  // Back/forward restores a cached page snapshot; React auth state can be stale while
+  // sessionStorage still holds a valid token — re-sync from the server.
+  useEffect(() => {
+    const resyncAuth = () => {
+      void refreshUser();
+    };
+
+    const onPageShow = (event: PageTransitionEvent) => {
+      if (event.persisted) {
+        resyncAuth();
+      }
+    };
+
+    window.addEventListener("pageshow", onPageShow);
+    window.addEventListener("popstate", resyncAuth);
+    return () => {
+      window.removeEventListener("pageshow", onPageShow);
+      window.removeEventListener("popstate", resyncAuth);
+    };
+  }, [refreshUser]);
+
   useEffect(() => {
     const onSessionExpired = () => {
       setUser(null);

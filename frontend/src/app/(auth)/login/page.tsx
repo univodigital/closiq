@@ -8,8 +8,10 @@ import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
 import { toast } from "sonner";
 import { useAuth } from "@/providers/AuthProvider";
+import { getAccessToken } from "@/lib/auth-token";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import { PasswordInput } from "@/components/ui/password-input";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { ApiError } from "@/lib/api-client";
 import { normalizeAuthIdentifier } from "@/lib/auth-identifier";
@@ -35,7 +37,8 @@ export default function LoginPage() {
   const router = useRouter();
   const searchParams = useSearchParams();
   const returnUrl = getSafeReturnUrl(searchParams.get("returnUrl"));
-  const { login, loginWithPassword, isAuthenticated, isLoading: authLoading } = useAuth();
+  const { login, loginWithPassword, isAuthenticated, isLoading: authLoading, refreshUser } =
+    useAuth();
   const [mode, setMode] = useState<LoginMode>("otp");
   const [loading, setLoading] = useState(false);
 
@@ -62,6 +65,14 @@ export default function LoginPage() {
       router.replace(returnUrl);
     }
   }, [authLoading, isAuthenticated, returnUrl, router]);
+
+  // Recover when browser back restores a pre-login snapshot but the token is still valid.
+  useEffect(() => {
+    if (authLoading || isAuthenticated) return;
+    if (getAccessToken()) {
+      void refreshUser();
+    }
+  }, [authLoading, isAuthenticated, refreshUser]);
 
   const onOtpSubmit = async (data: OtpFormData) => {
     setLoading(true);
@@ -97,7 +108,7 @@ export default function LoginPage() {
       const { value } = normalizeAuthIdentifier(data.identifier);
       await loginWithPassword(value, data.password);
       toast.success("Welcome back");
-      router.push(returnUrl);
+      router.replace(returnUrl);
     } catch (error) {
       if (error instanceof ApiError) {
         toast.error(error.message);
@@ -175,9 +186,8 @@ export default function LoginPage() {
                     Forgot password?
                   </Link>
                 </div>
-                <Input
+                <PasswordInput
                   {...passwordForm.register("password")}
-                  type="password"
                   placeholder="Your password"
                   autoComplete="current-password"
                   error={passwordForm.formState.errors.password?.message}

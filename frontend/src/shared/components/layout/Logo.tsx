@@ -5,6 +5,7 @@ import { cn } from "@/lib/utils";
 const HEIGHTS = {
   xs: 32,
   sm: 40,
+  nav: 60,
   md: 52,
   lg: 72,
   xl: 96,
@@ -12,15 +13,26 @@ const HEIGHTS = {
 } as const;
 
 type LogoSize = keyof typeof HEIGHTS;
-type LogoVariant = "full" | "icon";
 
-const ICON_ASPECT = 1024 / 682;
-const FULL_ASPECT = 1;
+type LogoVariant = "horizontal" | "stacked";
+
+const VARIANTS = {
+  horizontal: {
+    src: "/logo.svg",
+    /** Full lockup viewBox width / height (1935 × 1465). */
+    aspect: 1935 / 1465,
+  },
+  stacked: {
+    src: "/logo-stacked.png",
+    /** Icon + wordmark + tagline — square asset. */
+    aspect: 1,
+  },
+} as const satisfies Record<LogoVariant, { src: string; aspect: number }>;
 
 export function Logo({
   href,
-  size = "sm",
-  variant = "full",
+  size = "nav",
+  variant = "horizontal",
   className,
   priority = false,
 }: {
@@ -30,21 +42,24 @@ export function Logo({
   className?: string;
   priority?: boolean;
 }) {
+  const { src, aspect } = VARIANTS[variant];
   const height = HEIGHTS[size];
-  const src = variant === "icon" ? "/logo-icon.png" : "/logo.png";
-  const aspect = variant === "icon" ? ICON_ASPECT : FULL_ASPECT;
   const width = Math.round(height * aspect);
 
   const image = (
-    <Image
-      src={src}
-      alt="Closiq"
-      width={width}
-      height={height}
-      priority={priority}
-      className={cn("h-auto w-auto object-contain", className)}
-      style={{ height, width: "auto" }}
-    />
+    <span
+      className={cn("inline-flex shrink-0 items-center justify-center overflow-hidden", className)}
+      style={{ height, width }}
+    >
+      <Image
+        src={src}
+        alt="Closiq"
+        width={width}
+        height={height}
+        priority={priority}
+        className="h-full w-auto max-w-none object-contain object-center"
+      />
+    </span>
   );
 
   if (href === undefined) return image;

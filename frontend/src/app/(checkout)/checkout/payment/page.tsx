@@ -26,15 +26,20 @@ import {
 import { isCompleteBagItem } from "@/features/checkout/bag/bag-store";
 import { loadRazorpayScript, openRazorpayCheckout } from "@/features/checkout/lib/razorpay";
 import {
+  completeStubPayment,
   createBatchRazorpayOrder,
   prepareCheckoutBatch,
   verifyRazorpayPayment,
 } from "@/features/checkout/services/payment.service";
-import { resetCheckoutAttemptId } from "@/features/checkout/lib/checkout-idempotency";
+import { resetCheckoutAttemptId, syncCheckoutAttemptWithBag } from "@/features/checkout/lib/checkout-idempotency";
 
 const PAYMENT_METHODS = [
   { id: "razorpay", label: "Recommended", detail: "UPI, cards & net banking via Razorpay" },
 ] as const;
+
+function isStubPaymentOrder(order: { stubEnabled?: boolean; razorpayOrderId: string }) {
+  return order.stubEnabled === true || order.razorpayOrderId.startsWith("order_STUB_");
+}
 
 function buildFailedUrl(
   base: typeof ROUTES.checkout.failed,
@@ -132,20 +137,6 @@ export default function CheckoutPaymentPage() {
     let batchId: string | undefined;
 
     try {
-      const scriptLoaded = await loadRazorpayScript();
-      if (!scriptLoaded) {
-        router.push(
-          buildFailedUrl(ROUTES.checkout.failed, {
-            reason: "PAYMENT_FAILED",
-            detail: "Could not load Razorpay checkout.",
-            addressId,
-            pincode,
-            couponCode,
-          }),
-        );
-        return;
-      }
-
       const lines = await loadBagLines(completeItems);
       if (!lines.length) {
         router.push(ROUTES.checkout.bag);
@@ -167,7 +158,19 @@ export default function CheckoutPaymentPage() {
         return;
       }
 
-      const batch = await prepareCheckoutBatch(lines, addressId, couponCode || undefined);
+      syncCheckoutAttemptWithBag(bagKey);
+
+      let batch;
+      try {
+        batch = await prepareCheckoutBatch(lines, addressId, couponCode || undefined);
+      } catch (prepareError) {
+        if (prepareError instanceof ApiError && prepareError.status === 409) {
+          resetCheckoutAttemptId();
+          batch = await prepareCheckoutBatch(lines, addressId, couponCode || undefined);
+        } else {
+          throw prepareError;
+        }
+      }
       batchId = batch.checkoutBatchId;
       setHoldExpiresAt(batch.holdExpiresAt);
 
@@ -186,45 +189,65 @@ export default function CheckoutPaymentPage() {
 
       const order = await createBatchRazorpayOrder(batch.checkoutBatchId);
 
-      const keyId = order.keyId || process.env.NEXT_PUBLIC_RAZORPAY_KEY_ID || "";
-      if (!keyId) {
-        router.push(
-          buildFailedUrl(ROUTES.checkout.failed, {
-            reason: "PAYMENT_FAILED",
-            detail: "Razorpay is not configured.",
-            batchId,
-            addressId,
-            pincode,
-            couponCode,
-          }),
-        );
-        return;
+      let verified;
+      if (isStubPaymentOrder(order)) {
+        verified = await completeStubPayment(order.paymentId);
+      } else {
+        const scriptLoaded = await loadRazorpayScript();
+        if (!scriptLoaded) {
+          router.push(
+            buildFailedUrl(ROUTES.checkout.failed, {
+              reason: "PAYMENT_FAILED",
+              detail: "Could not load Razorpay checkout.",
+              batchId,
+              addressId,
+              pincode,
+              couponCode,
+            }),
+          );
+          return;
+        }
+
+        const keyId = order.keyId || process.env.NEXT_PUBLIC_RAZORPAY_KEY_ID || "";
+        if (!keyId) {
+          router.push(
+            buildFailedUrl(ROUTES.checkout.failed, {
+              reason: "PAYMENT_FAILED",
+              detail: "Razorpay is not configured.",
+              batchId,
+              addressId,
+              pincode,
+              couponCode,
+            }),
+          );
+          return;
+        }
+
+        const itemLabel =
+          (order.itemCount ?? lines.length) > 1
+            ? `Rental payment (${order.itemCount ?? lines.length} items)`
+            : "Rental payment";
+
+        const paymentResponse = await openRazorpayCheckout({
+          key: keyId,
+          name: "Closiq",
+          description: itemLabel,
+          order_id: order.razorpayOrderId,
+          prefill: {
+            name: user?.displayName,
+            email: user?.email,
+            contact: user?.phone,
+          },
+          theme: { color: DESIGN_TOKENS.navy },
+        });
+
+        verified = await verifyRazorpayPayment({
+          paymentId: order.paymentId,
+          razorpayOrderId: paymentResponse.razorpay_order_id,
+          razorpayPaymentId: paymentResponse.razorpay_payment_id,
+          razorpaySignature: paymentResponse.razorpay_signature,
+        });
       }
-
-      const itemLabel =
-        (order.itemCount ?? lines.length) > 1
-          ? `Rental payment (${order.itemCount ?? lines.length} items)`
-          : "Rental payment";
-
-      const paymentResponse = await openRazorpayCheckout({
-        key: keyId,
-        name: "Closiq",
-        description: itemLabel,
-        order_id: order.razorpayOrderId,
-        prefill: {
-          name: user?.displayName,
-          email: user?.email,
-          contact: user?.phone,
-        },
-        theme: { color: DESIGN_TOKENS.navy },
-      });
-
-      const verified = await verifyRazorpayPayment({
-        paymentId: order.paymentId,
-        razorpayOrderId: paymentResponse.razorpay_order_id,
-        razorpayPaymentId: paymentResponse.razorpay_payment_id,
-        razorpaySignature: paymentResponse.razorpay_signature,
-      });
 
       resetCheckoutAttemptId();
       router.push(
@@ -232,7 +255,11 @@ export default function CheckoutPaymentPage() {
       );
     } catch (error) {
       if (error instanceof ApiError) {
-        if (error.status === 403 || error.status === 401) {
+        if (
+          error.status === 401 &&
+          (!error.code || error.code === "UNAUTHORIZED" || error.code === "TOKEN_EXPIRED") &&
+          !error.message.toLowerCase().includes("razorpay")
+        ) {
           router.push(
             `${ROUTES.login}?returnUrl=${encodeURIComponent(window.location.pathname + window.location.search)}`,
           );
@@ -370,7 +397,10 @@ export default function CheckoutPaymentPage() {
               <CardContent className="space-y-4 p-6">
                 <p className="label-caps text-muted-foreground">Payment details</p>
                 <p className="text-sm text-muted-foreground">
-                  One Razorpay checkout for all bag items. Your card or UPI is charged once for the combined total.
+                  {process.env.NEXT_PUBLIC_PAYMENT_STUB === "true" ||
+                  process.env.NODE_ENV === "development"
+                    ? "Mock payments are enabled — no real charge. Click pay to confirm instantly."
+                    : "One Razorpay checkout for all bag items. Your card or UPI is charged once for the combined total."}
                 </p>
                 {!isAuthenticated && (
                   <p className="text-sm text-muted-foreground">

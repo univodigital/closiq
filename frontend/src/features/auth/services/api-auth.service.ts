@@ -211,7 +211,7 @@ export class ApiAuthService implements AuthService {
       const data = await apiFetch<UserSummaryResponse>("/auth/me");
       return mapUser(data);
     } catch {
-      setAccessToken(null);
+      // apiFetch clears the token only on definitive session expiry (401).
       return null;
     }
   }

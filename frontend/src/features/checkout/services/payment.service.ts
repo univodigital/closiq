@@ -27,6 +27,7 @@ export interface RazorpayOrderResult {
   checkoutBatchId?: string;
   itemCount?: number;
   expiresAt?: string;
+  stubEnabled?: boolean;
 }
 
 export interface VerifyPaymentResult {
@@ -84,5 +85,13 @@ export async function verifyRazorpayPayment(input: {
     method: "POST",
     headers: { "Idempotency-Key": checkoutIdempotencyKey("razorpay-verify") },
     body: JSON.stringify(input),
+  });
+}
+
+export async function completeStubPayment(paymentId: string): Promise<VerifyPaymentResult> {
+  return apiFetch<VerifyPaymentResult>("/payments/razorpay/stub/complete", {
+    method: "POST",
+    headers: { "Idempotency-Key": checkoutIdempotencyKey("stub-complete") },
+    body: JSON.stringify({ paymentId }),
   });
 }

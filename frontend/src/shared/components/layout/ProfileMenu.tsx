@@ -12,10 +12,10 @@ import {
   Store,
   User,
 } from "lucide-react";
+import { useLogoutAction } from "@/features/auth/hooks/useLogoutAction";
 import { useAuth } from "@/providers/AuthProvider";
 import { useAppMode } from "@/providers/AppModeProvider";
 import { ROUTES } from "@/shared/constants/routes";
-import { cn } from "@/lib/utils";
 
 const itemClass =
   "flex cursor-pointer items-center gap-2 rounded-sm px-3 py-2 text-sm text-foreground outline-none hover:bg-muted focus:bg-muted";
@@ -23,7 +23,8 @@ const itemClass =
 export function ProfileMenu() {
   const router = useRouter();
   const pathname = usePathname();
-  const { user, isAuthenticated, hasRole, logout } = useAuth();
+  const { user, isAuthenticated, hasRole } = useAuth();
+  const signOut = useLogoutAction();
   const { setMode } = useAppMode();
 
   if (!isAuthenticated) {
@@ -48,7 +49,7 @@ export function ProfileMenu() {
   const isSeller = hasRole("SELLER");
   const inSellerArea = pathname.startsWith("/seller");
 
-  function switchToSeller() {
+  function goToSellerDashboard() {
     setMode("seller");
     router.push(ROUTES.seller.dashboard);
   }
@@ -118,25 +119,29 @@ export function ProfileMenu() {
           <DropdownMenu.Separator className="my-1 h-px bg-border" />
 
           {isSeller ? (
-            <>
-              <DropdownMenu.Item asChild>
-                <Link href={ROUTES.seller.dashboard} className={itemClass}>
-                  <Store className="h-4 w-4 text-muted-foreground" />
-                  Seller Dashboard
-                </Link>
-              </DropdownMenu.Item>
+            inSellerArea ? (
               <DropdownMenu.Item
                 className={itemClass}
                 onSelect={(e) => {
                   e.preventDefault();
-                  if (inSellerArea) switchToShop();
-                  else switchToSeller();
+                  switchToShop();
                 }}
               >
                 <ArrowLeftRight className="h-4 w-4 text-muted-foreground" />
-                {inSellerArea ? "Switch to shopping" : "Switch to seller"}
+                Switch to shopping
               </DropdownMenu.Item>
-            </>
+            ) : (
+              <DropdownMenu.Item
+                className={itemClass}
+                onSelect={(e) => {
+                  e.preventDefault();
+                  goToSellerDashboard();
+                }}
+              >
+                <Store className="h-4 w-4 text-muted-foreground" />
+                Seller Dashboard
+              </DropdownMenu.Item>
+            )
           ) : (
             <DropdownMenu.Item asChild>
               <Link href={ROUTES.account.becomeSeller} className={itemClass}>
@@ -150,10 +155,9 @@ export function ProfileMenu() {
 
           <DropdownMenu.Item
             className={itemClass}
-            onSelect={async (e) => {
+            onSelect={(e) => {
               e.preventDefault();
-              await logout();
-              router.push(ROUTES.home);
+              void signOut();
             }}
           >
             <LogOut className="h-4 w-4 text-muted-foreground" />

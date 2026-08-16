@@ -17,6 +17,7 @@ Application code lives in `frontend/` and `backend/`. See `/docs` for planning a
 
 | Document | Description |
 |---|---|
+| [docs/PROJECT-OVERVIEW.md](./docs/PROJECT-OVERVIEW.md) | **Start here** — tech stack, modules, advanced patterns (compact) |
 | [docs/PHASE-1-FOUNDATION.md](./docs/PHASE-1-FOUNDATION.md) | Product architecture, roadmap, risks |
 | [docs/PHASE-1-SUMMARY.md](./docs/PHASE-1-SUMMARY.md) | Phase 1 deliverables summary |
 | [docs/PHASE-2-FRONTEND-ARCHITECTURE.md](./docs/PHASE-2-FRONTEND-ARCHITECTURE.md) | Frontend architecture, screens, components, design system |

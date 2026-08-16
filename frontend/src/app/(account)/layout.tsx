@@ -7,7 +7,7 @@ export default function AccountLayout({ children }: { children: React.ReactNode 
   return (
     <>
       <TopNav />
-      <div className="mx-auto flex w-full max-w-7xl flex-1 gap-6 px-5 py-8 md:gap-10 md:px-12 lg:py-12">
+      <div className="mx-auto flex w-full max-w-6xl flex-1 gap-6 px-4 py-8 md:gap-10 md:px-8 lg:py-12">
         <AccountSidebar />
         <div className="flex min-w-0 flex-1 flex-col">
           <AccountMobileNav />

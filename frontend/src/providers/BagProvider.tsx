@@ -55,6 +55,7 @@ export function BagProvider({ children }: { children: React.ReactNode }) {
   const [hydrated, setHydrated] = useState(false);
   const syncTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
   const mergedOnLogin = useRef(false);
+  const wasAuthenticated = useRef(false);
 
   const refresh = useCallback(() => {
     setItems(readBagItemsFromStorage());
@@ -100,9 +101,15 @@ export function BagProvider({ children }: { children: React.ReactNode }) {
     if (authLoading) return;
 
     if (!isAuthenticated) {
+      if (wasAuthenticated.current) {
+        refresh();
+      }
+      wasAuthenticated.current = false;
       mergedOnLogin.current = false;
       return;
     }
+
+    wasAuthenticated.current = true;
 
     if (mergedOnLogin.current) return;
     mergedOnLogin.current = true;
