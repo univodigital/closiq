@@ -85,7 +85,7 @@ export default function VerifyOtpPage() {
         if (result.existingAccount) {
           sessionStorage.removeItem("otpSessionId");
           sessionStorage.removeItem("otpResendIn");
-          router.push(`/signup/existing?phone=${encodeURIComponent(result.phone ?? phone)}`);
+          router.push(`${ROUTES.signupExisting}?phone=${encodeURIComponent(result.phone ?? phone)}`);
           return;
         }
         if (result.requiresProfile) {
@@ -96,19 +96,32 @@ export default function VerifyOtpPage() {
             return;
           }
           const profile = JSON.parse(profileRaw) as RegistrationProfile;
-          await completeRegistration(otpSessionId, profile);
+          try {
+            await completeRegistration(otpSessionId, profile);
+          } catch (registrationError) {
+            if (registrationError instanceof ApiError && registrationError.status === 409) {
+              sessionStorage.removeItem("otpSessionId");
+              sessionStorage.removeItem("otpPhone");
+              sessionStorage.removeItem("otpDeliveryHint");
+              sessionStorage.removeItem("otpResendIn");
+              sessionStorage.removeItem("registerProfile");
+              router.push(`${ROUTES.signupExisting}?phone=${encodeURIComponent(phone)}`);
+              return;
+            }
+            throw registrationError;
+          }
           sessionStorage.removeItem("otpSessionId");
           sessionStorage.removeItem("otpPhone");
           sessionStorage.removeItem("otpDeliveryHint");
           sessionStorage.removeItem("otpResendIn");
           sessionStorage.removeItem("registerProfile");
-          router.push("/signup/welcome");
+          router.push(ROUTES.signupWelcome);
           return;
         }
         if (result.authenticated) {
           sessionStorage.removeItem("otpSessionId");
           sessionStorage.removeItem("otpResendIn");
-          router.push("/signup/welcome");
+          router.push(ROUTES.signupWelcome);
           return;
         }
       } else {

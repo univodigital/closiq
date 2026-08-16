@@ -16,8 +16,8 @@ export function CheckoutLayoutShell({
     <div className="min-h-screen bg-background">
       <header className="sticky top-0 z-50 border-b border-border bg-card/95 backdrop-blur-sm">
         <div className="mx-auto max-w-6xl px-4 md:px-8">
-          <div className="flex min-h-[4.75rem] flex-col justify-center gap-4 py-2 sm:flex-row sm:items-center sm:justify-between">
-            <Logo href={ROUTES.home} size="nav" priority />
+          <div className="relative flex min-h-14 items-center justify-between gap-3 py-1.5">
+            <Logo href={ROUTES.home} size="sm" priority />
             <CheckoutProgress current={step} queryString={queryString} />
           </div>
         </div>
